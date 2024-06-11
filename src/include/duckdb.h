@@ -436,6 +436,10 @@ typedef struct _duckdb_value {
 	void *__val;
 } * duckdb_value;
 
+typedef struct _duckdb_profiling_info {
+	void *__prof;
+} * duckdb_profiling_info;
+
 //===--------------------------------------------------------------------===//
 // Function types
 //===--------------------------------------------------------------------===//
@@ -2696,6 +2700,16 @@ Report that an error has occurred while executing the replacement scan.
 */
 DUCKDB_API void duckdb_replacement_scan_set_error(duckdb_replacement_scan_info info, const char *error);
 #endif
+
+//===--------------------------------------------------------------------===//
+// Profiling Info
+//===--------------------------------------------------------------------===//
+
+//! Returns the root node from the profiling information.
+DUCKDB_API duckdb_profiling_info duckdb_get_profiling_info(duckdb_connection connection);
+
+//! Returns the query info of the profiling information.
+DUCKDB_API duckdb_profiling_info duckdb_get_query_info(duckdb_connection connection);
 
 //===--------------------------------------------------------------------===//
 // Appender

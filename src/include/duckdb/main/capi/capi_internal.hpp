@@ -70,6 +70,7 @@ struct DuckDBResultData {
 	// Results can only use either the new API or the old API, not a mix of the two
 	// They start off as "none" and switch to one or the other when an API method is used
 	CAPIResultSetType result_set_type;
+	// Profiling info
 };
 
 duckdb_type ConvertCPPTypeToC(const LogicalType &type);

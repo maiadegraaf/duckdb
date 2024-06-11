@@ -58,7 +58,7 @@ public:
 
 public:
 	ProfilingInfo() = default;
-	explicit ProfilingInfo(profiler_settings_t &n_settings) : settings(n_settings) {
+	ProfilingInfo(profiler_settings_t &n_settings) : settings(n_settings) {
 	}
 	ProfilingInfo(ProfilingInfo &) = default;
 	ProfilingInfo &operator=(ProfilingInfo const &) = default;

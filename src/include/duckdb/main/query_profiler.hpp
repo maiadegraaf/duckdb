@@ -88,29 +88,92 @@ public:
 	DUCKDB_API explicit QueryProfiler(ClientContext &context);
 
 public:
+//	// Recursive tree that mirrors the operator tree
+//	struct TreeNode {
+//		PhysicalOperatorType type;
+//		string name;
+//		ProfilingInfo profiling_info;
+//		vector<unique_ptr<TreeNode>> children;
+//		idx_t depth = 0;
+//	};
+//
+//	// Holds the top level query info
+//	struct QueryInfo {
+//		string query;
+//		ProfilingInfo settings;
+//	};
+
 	// Recursive tree that mirrors the operator tree
-	struct TreeNode {
-		PhysicalOperatorType type;
-		string name;
+	class ProfilingNode {
+	public:
 		ProfilingInfo profiling_info;
-		vector<unique_ptr<TreeNode>> children;
-		idx_t depth = 0;
+		vector<unique_ptr<ProfilingNode>> children;
+		bool is_query = false;
+
+	public:
+//		ProfilingNode() = default;
+//		ProfilingNode(ProfilingNode &) = default;
+//		ProfilingNode &operator=(ProfilingNode const &) = default;
+
+	public:
+		idx_t GetChildCount() {return children.size();}
+
+		// TODO: Can this be simplified?
+		template <class TARGET>
+		TARGET &Cast() {
+			if (std::is_same<TARGET, QueryProfilingNode>::value) {
+				if (!is_query) {
+					throw InternalException("Failed to cast ProfilingNode to QueryProfilingNode - node type mismatch");
+				}
+                return reinterpret_cast<TARGET &>(*this);
+            }
+			if (is_query) {
+				throw InternalException("Failed to cast ProfilingNode to OperatorProfilingNode - node type mismatch");
+			}
+			return reinterpret_cast<TARGET &>(*this);
+		}
+
+		template <class TARGET>
+		const TARGET &Cast() const{
+			if (std::is_same<TARGET, QueryProfilingNode>::value) {
+				if (!is_query) {
+					throw InternalException("Failed to cast ProfilingNode to QueryProfilingNode - node type mismatch");
+				}
+				return reinterpret_cast<const TARGET &>(*this);
+			}
+			if (is_query) {
+				throw InternalException("Failed to cast ProfilingNode to OperatorProfilingNode - node type mismatch");
+			}
+			return reinterpret_cast<const TARGET &>(*this);
+		}
+
+		// TODO:
+//		string GetValue(name string); // is return type string?
 	};
 
 	// Holds the top level query info
-	struct QueryInfo {
+	class QueryProfilingNode : public ProfilingNode {
+    public:
 		string query;
-		ProfilingInfo settings;
+	};
+
+	// Holds the operator info
+	class OperatorProfilingNode : public ProfilingNode {
+    public:
+        PhysicalOperatorType type;
+        string name;
+
+		idx_t depth = 0;
 	};
 
 	// Propagate save_location, enabled, detailed_enabled and automatic_print_format.
 	void Propagate(QueryProfiler &qp);
 
-	using TreeMap = reference_map_t<const PhysicalOperator, reference<TreeNode>>;
+	using TreeMap = reference_map_t<const PhysicalOperator, reference<ProfilingNode>>;
 
 private:
-	unique_ptr<TreeNode> CreateTree(const PhysicalOperator &root, profiler_settings_t settings, idx_t depth = 0);
-	void Render(const TreeNode &node, std::ostream &str) const;
+	unique_ptr<ProfilingNode> CreateTree(const PhysicalOperator &root, profiler_settings_t settings, idx_t depth = 0);
+	void Render(const ProfilingNode &node, std::ostream &str) const;
 
 public:
 	DUCKDB_API bool IsEnabled() const;
@@ -150,7 +213,17 @@ public:
 		return tree_map.size();
 	}
 
-	void Finalize(TreeNode &node);
+	void Finalize(ProfilingNode &node);
+
+	//! The root of the query tree
+	unique_ptr<ProfilingNode> *GetRoot() {
+        return reinterpret_cast<unique_ptr<duckdb::QueryProfiler::ProfilingNode> *>(root.get());
+    }
+
+//    //! The query info
+//	unique_ptr<QueryInfo> *GetQueryInfo() {
+//        return reinterpret_cast<unique_ptr<duckdb::QueryProfiler::QueryInfo> *>(query_info.get());
+//    }
 
 private:
 	ClientContext &context;
@@ -164,10 +237,10 @@ private:
 	bool query_requires_profiling;
 
 	//! The root of the query tree
-	unique_ptr<TreeNode> root;
+	unique_ptr<ProfilingNode> root;
 
-	//! The query info
-	unique_ptr<QueryInfo> query_info;
+/*	//! The query info
+	unique_ptr<QueryProfilingNode> query_info;*/
 
 	//! The query string
 	string query;
@@ -199,7 +272,6 @@ private:
 	//! Check whether or not an operator type requires query profiling. If none of the ops in a query require profiling
 	//! no profiling information is output.
 	bool OperatorRequiresProfiling(PhysicalOperatorType op_type);
-	void ReadAndSetCustomProfilerSettings(const string &settings_path);
 };
 
 } // namespace duckdb
