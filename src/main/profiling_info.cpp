@@ -17,6 +17,7 @@ profiler_settings_t ProfilingInfo::DefaultSettings() {
 	return {
 	    MetricsType::CPU_TIME,
 	    MetricsType::EXTRA_INFO,
+	    MetricsType::CUMULATIVE_CARDINALITY,
 	    MetricsType::OPERATOR_CARDINALITY,
 	    MetricsType::OPERATOR_TIMING,
 	};
@@ -28,7 +29,7 @@ void ProfilingInfo::ResetSettings() {
 }
 
 void ProfilingInfo::ResetMetrics() {
-	metrics = Metrics();
+	metrics = {};
 }
 
 bool ProfilingInfo::Enabled(const MetricsType setting) const {
@@ -38,21 +39,20 @@ bool ProfilingInfo::Enabled(const MetricsType setting) const {
 	if (setting == MetricsType::OPERATOR_TIMING && Enabled(MetricsType::CPU_TIME)) {
 		return true;
 	}
+	if (setting == MetricsType::OPERATOR_CARDINALITY && Enabled(MetricsType::CUMULATIVE_CARDINALITY)) {
+		return true;
+	}
 	return false;
 }
 
-string ProfilingInfo::GetMetricAsString(MetricsType setting) const {
-	switch (setting) {
-	case MetricsType::CPU_TIME:
-		return to_string(metrics.cpu_time);
-	case MetricsType::EXTRA_INFO:
-		return "\"" + QueryProfiler::JSONSanitize(metrics.extra_info) + "\"";
-	case MetricsType::OPERATOR_CARDINALITY:
-		return to_string(metrics.operator_cardinality);
-	case MetricsType::OPERATOR_TIMING:
-		return to_string(metrics.operator_timing);
+string ProfilingInfo::GetMetricAsString(MetricsType setting) {
+	if (setting == MetricsType::EXTRA_INFO) {
+		return "\"" + QueryProfiler::JSONSanitize(metrics[MetricsType::EXTRA_INFO].GetValue<string>()) + "\"";
 	}
-	return "";
+
+	if (metrics[setting].IsNull())
+		return "0";
+	return metrics[setting].ToString();
 }
 
 void ProfilingInfo::PrintAllMetricsToSS(std::stringstream &ss, const string &depth) {

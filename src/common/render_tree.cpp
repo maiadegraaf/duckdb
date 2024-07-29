@@ -116,22 +116,23 @@ static unique_ptr<RenderTreeNode> CreateNode(const PipelineRenderNode &op) {
 }
 
 static unique_ptr<RenderTreeNode> CreateNode(const ProfilingNode &op) {
-	string extra_info;
-	if (op.GetProfilingInfo().Enabled(MetricsType::EXTRA_INFO)) {
-		extra_info = op.GetProfilingInfo().metrics.extra_info;
-	}
-
+	//	string extra_info;
+	//	if (op.GetProfilingInfo().Enabled(MetricsType::EXTRA_INFO)) {
+	//		extra_info = op.GetProfilingInfo().GetMetricValue<string>(MetricsType::EXTRA_INFO);
+	//	}
+	//
 	unique_ptr<RenderTreeNode> result;
-	if (op.node_type == ProfilingNodeType::QUERY_ROOT) {
-		result = make_uniq<RenderTreeNode>(EnumUtil::ToString(op.node_type), extra_info);
-	} else {
-		auto &op_node = op.Cast<OperatorProfilingNode>();
-		result = make_uniq<RenderTreeNode>(op_node.name, extra_info);
-	}
-	result->extra_text += "\n[INFOSEPARATOR]";
-	result->extra_text += "\n" + to_string(op.GetProfilingInfo().metrics.operator_cardinality);
-	string timing = StringUtil::Format("%.2f", op.GetProfilingInfo().metrics.operator_timing);
-	result->extra_text += "\n(" + timing + "s)";
+	//	if (op.node_type == ProfilingNodeType::QUERY_ROOT) {
+	//		result = make_uniq<RenderTreeNode>(EnumUtil::ToString(op.node_type), extra_info);
+	//	} else {
+	//		auto &op_node = op.Cast<OperatorProfilingNode>();
+	//		result = make_uniq<RenderTreeNode>(op_node.name, extra_info);
+	//	}
+	//	result->extra_text += "\n[INFOSEPARATOR]";
+	//	result->extra_text += "\n" +
+	// to_string(op.GetProfilingInfo().GetMetricValue<idx_t>(MetricsType::OPERATOR_CARDINALITY)); 	string timing =
+	// StringUtil::Format("%.2f", op.GetProfilingInfo().GetMetricValue<double>(MetricsType::OPERATOR_TIMING));
+	//	result->extra_text += "\n(" + timing + "s)";
 	return result;
 }
 

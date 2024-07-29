@@ -63,6 +63,27 @@ public:
 		return children.back().get();
 	}
 
+	//	template <class CHILD_TYPE>
+	//	CHILD_TYPE GetChildMetric(idx_t idx, MetricsType metric) {
+	//        auto &child = children[idx];
+	//        if (!child) {
+	//            throw InternalException("Failed to get child metric - child not found");
+	//        }
+	//		switch (metric) {
+	//        case MetricsType::CPU_TIME:
+	//            return child->GetProfilingInfo().metrics.cpu_time;
+	//        case MetricsType::EXTRA_INFO:
+	//            return child->GetProfilingInfo().metrics.extra_info;
+	//        case MetricsType::CUMULATIVE_CARDINALITY:
+	//            return child->GetProfilingInfo().metrics.cumulative_cardinality;
+	//        case MetricsType::OPERATOR_CARDINALITY:
+	//            return child->GetProfilingInfo().metrics.operator_cardinality;
+	//        case MetricsType::OPERATOR_TIMING:
+	//            return child->GetProfilingInfo().metrics.operator_timing;
+	//		}
+	//        return CHILD_TYPE();
+	//    }
+
 	template <class TARGET>
 	TARGET &Cast() {
 		if (node_type != TARGET::TYPE) {
