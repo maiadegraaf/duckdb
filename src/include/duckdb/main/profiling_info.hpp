@@ -50,17 +50,6 @@ struct SettingSetFunctions {
 	}
 };
 
-// struct Metrics {
-//	Value cpu_time;
-//	Value extra_info;
-//	idx_t cumulative_cardinality;
-//	idx_t operator_cardinality;
-//	double operator_timing;
-//
-//	Metrics() : cpu_time(0), cumulative_cardinality(0), operator_cardinality(0), operator_timing(0) {
-//	}
-//};
-
 class ProfilingInfo {
 public:
 	// set of metrics with their values; only enabled metrics are present in the set
@@ -127,22 +116,5 @@ public:
 		auto new_value = metrics[setting].GetValue<METRIC_TYPE>() + value;
 		metrics[setting] = Value::CreateValue(new_value);
 	}
-
-	//	template <class METRIC_TYPE>
-	//	const METRIC_TYPE &GetMetricValue(const MetricsType setting) {
-	//		switch (setting) {
-	//		case MetricsType::CPU_TIME:
-	//			return metrics["cpu_time"].DefaultCastAs(LogicalTypeId::DOUBLE);
-	//		case MetricsType::EXTRA_INFO:
-	//			return metrics["extra_info"].DefaultCastAs(LogicalTypeId::VARCHAR);
-	//		case MetricsType::CUMULATIVE_CARDINALITY:
-	//			return metrics["cumulative_cardinality"].DefaultCastAs(LogicalTypeId::BIGINT);
-	//		case MetricsType::OPERATOR_CARDINALITY:
-	//			return metrics["operator_cardinality"].DefaultCastAs(LogicalTypeId::BIGINT);
-	//		case MetricsType::OPERATOR_TIMING:
-	//			return metrics["operator_timing"].DefaultCastAs(LogicalTypeId::DOUBLE);
-	//		}
-	//		throw InternalException("Unknown MetricsType");
-	//	}
 };
 } // namespace duckdb
