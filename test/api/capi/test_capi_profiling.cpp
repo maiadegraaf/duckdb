@@ -15,17 +15,19 @@ string BuildProfilingSettingsString(const duckdb::vector<string> &settings) {
 	return result;
 }
 
-void RetrieveAllMetrics(duckdb_profiling_info profiling_info, const duckdb::vector<string> &settings,
-                        duckdb::map<string, double> &cumulative_counter,
+void RetrieveAllMetrics(duckdb_profiling_info profiling_info, duckdb::map<string, double> &cumulative_counter,
                         duckdb::map<string, double> &cumulative_result) {
-	for (idx_t i = 0; i < settings.size(); i++) {
-		auto value = duckdb_profiling_info_get_value(profiling_info, settings[i].c_str());
+	auto count = duckdb_profiling_info_get_key_count(profiling_info);
+	for (idx_t i = 0; i < count; i++) {
+		auto key = duckdb_profiling_info_get_key(profiling_info, i);
+		auto c_key = duckdb_get_varchar(key);
+		auto value = duckdb_profiling_info_get_value(profiling_info, c_key);
 		if (value != nullptr) {
-			if (settings[i] == "EXTRA_INFO") {
+			if (!strcmp(c_key, "EXTRA_INFO")) {
 				duckdb_destroy_value(&value);
 				continue;
 			}
-			if (settings[i] == "QUERY_NAME" || settings[i] == "OPERATOR_NAME") {
+			if (!strcmp(c_key, "QUERY_NAME") || !strcmp(c_key, "OPERATOR_TYPE")) {
 				auto str_value = duckdb_get_varchar(value);
 				REQUIRE(str_value != nullptr);
 				duckdb_free(str_value);
@@ -33,7 +35,7 @@ void RetrieveAllMetrics(duckdb_profiling_info profiling_info, const duckdb::vect
 			double result = 0;
 			try {
 				auto str_value = duckdb_get_varchar(value);
-				if (settings[i] == "QUERY_NAME" || settings[i] == "OPERATOR_NAME") {
+				if (!strcmp(c_key, "QUERY_NAME") || !strcmp(c_key, "OPERATOR_TYPE")) {
 					REQUIRE(str_value != nullptr);
 				} else {
 					result = std::stod(str_value);
@@ -43,31 +45,34 @@ void RetrieveAllMetrics(duckdb_profiling_info profiling_info, const duckdb::vect
 				REQUIRE(false);
 			}
 
-			if (cumulative_counter.find(settings[i]) != cumulative_counter.end()) {
-				cumulative_counter[settings[i]] += result;
+			if (cumulative_counter.find(c_key) != cumulative_counter.end()) {
+				cumulative_counter[c_key] += result;
 			}
 
 			// only take the root node's result
-			if (cumulative_result.find(settings[i]) != cumulative_result.end() && cumulative_result[settings[i]] == 0) {
-				cumulative_result[settings[i]] = result;
+			if (cumulative_result.find(c_key) != cumulative_result.end() && cumulative_result[c_key] == 0) {
+				cumulative_result[c_key] = result;
 			}
 
 			duckdb_destroy_value(&value);
 			REQUIRE(result >= 0);
 		}
+		duckdb_destroy_value(&key);
+		duckdb_free(c_key);
 	}
 }
 
 // Traverse the tree and retrieve all metrics
-void TraverseTree(duckdb_profiling_info profiling_info, const duckdb::vector<string> &settings,
-                  duckdb::map<string, double> &cumulative_counter, duckdb::map<string, double> &cumulative_result) {
-	RetrieveAllMetrics(profiling_info, settings, cumulative_counter, cumulative_result);
+void TraverseTree(duckdb_profiling_info profiling_info, duckdb::map<string, double> &cumulative_counter,
+                  duckdb::map<string, double> &cumulative_result) {
+	RetrieveAllMetrics(profiling_info, cumulative_counter, cumulative_result);
 
 	// Recurse.
 	auto child_count = duckdb_profiling_info_get_child_count(profiling_info);
 	for (idx_t i = 0; i < child_count; i++) {
 		auto child = duckdb_profiling_info_get_child(profiling_info, i);
-		TraverseTree(child, settings, cumulative_counter, cumulative_result);
+		TraverseTree(child, cumulative_counter, cumulative_result);
+		duckdb_profiling_info_destroy(&child);
 	}
 }
 
@@ -99,7 +104,8 @@ TEST_CASE("Test Profiling with Single Metric", "[capi]") {
 	duckdb::map<string, double> cumulative_counter;
 	duckdb::map<string, double> cumulative_result;
 
-	TraverseTree(profiling_info, settings, cumulative_counter, cumulative_result);
+	TraverseTree(profiling_info, cumulative_counter, cumulative_result);
+	duckdb_profiling_info_destroy(&profiling_info);
 
 	// Cleanup
 	tester.Cleanup();
@@ -130,7 +136,8 @@ TEST_CASE("Test Profiling with All Metrics", "[capi]") {
 	    {"CUMULATIVE_CARDINALITY", 0},
 	};
 
-	TraverseTree(profiling_info, settings, cumulative_counter, cumulative_result);
+	TraverseTree(profiling_info, cumulative_counter, cumulative_result);
+	duckdb_profiling_info_destroy(&profiling_info);
 
 	REQUIRE(ConvertToInt(cumulative_result["CPU_TIME"]) == ConvertToInt(cumulative_counter["OPERATOR_TIMING"]));
 	REQUIRE(ConvertToInt(cumulative_result["CUMULATIVE_CARDINALITY"]) ==
@@ -150,6 +157,33 @@ TEST_CASE("Test Profiling without Enabling Profiling", "[capi]") {
 	// Retrieve profiling info without enabling profiling
 	auto profiling_info = duckdb_get_profiling_info(tester.connection);
 	REQUIRE(profiling_info == nullptr);
+
+	duckdb_profiling_info_destroy(&profiling_info);
+
+	// Cleanup
+	tester.Cleanup();
+}
+
+TEST_CASE("Test Profiling With Detailed Profiling Mode On", "[capi]") {
+	CAPITester tester;
+	duckdb::unique_ptr<CAPIResult> result;
+
+	// open the database in in-memory mode
+	REQUIRE(tester.OpenDatabase(nullptr));
+
+	REQUIRE_NO_FAIL(tester.Query("PRAGMA enable_profiling = 'no_output'"));
+
+	REQUIRE_NO_FAIL(tester.Query("PRAGMA profiling_mode = 'detailed'"));
+
+	REQUIRE_NO_FAIL(tester.Query("SELECT 42"));
+
+	auto profiling_info = duckdb_get_profiling_info(tester.connection);
+	REQUIRE(profiling_info != nullptr);
+
+	duckdb::map<string, double> cumulative_counter;
+	duckdb::map<string, double> cumulative_result;
+	TraverseTree(profiling_info, cumulative_counter, cumulative_result);
+	duckdb_profiling_info_destroy(&profiling_info);
 
 	// Cleanup
 	tester.Cleanup();

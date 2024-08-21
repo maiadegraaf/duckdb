@@ -63,6 +63,11 @@ struct TableDescriptionWrapper {
 	string error;
 };
 
+struct ProfilingNodeWrapper {
+	optional_ptr<ProfilingNode> profiling_node;
+	vector<string> keys;
+};
+
 enum class CAPIResultSetType : uint8_t {
 	CAPI_RESULT_TYPE_NONE = 0,
 	CAPI_RESULT_TYPE_MATERIALIZED,
