@@ -3363,33 +3363,9 @@ DUCKDB_API void duckdb_replacement_scan_set_error(duckdb_replacement_scan_info i
 Returns the root node of the profiling information. Returns nullptr, if profiling is not enabled.
 
 * @param connection A connection object.
-* @return A profiling information object. Must be freed with `duckdb_profiling_info_destroy`
+* @return A profiling information object.
 */
 DUCKDB_API duckdb_profiling_info duckdb_get_profiling_info(duckdb_connection connection);
-
-/*!
- * Destorys and deallocates the duckdb_profiling_info node.
- *
- * @param info The node to be destroyed.
- */
-DUCKDB_API void duckdb_profiling_info_destroy(duckdb_profiling_info *info);
-
-/*!
-Returns the number of settings (as keys) in the current profiling info node.
-
-* @param info A profiling information object.
-* @return The number of keys in the current node.
-*/
-DUCKDB_API idx_t duckdb_profiling_info_get_key_count(duckdb_profiling_info info);
-
-/*!
-Returns the key corresponding to the key index in the current profiling info node.
-
-* @param info A profiling information object.
-* @param key_idx The index of the key.
-* @return The key at the specified index. Must be freed with `duckdb_destroy_value`
-*/
-DUCKDB_API duckdb_value duckdb_profiling_info_get_key(duckdb_profiling_info info, idx_t key_idx);
 
 /*!
 Returns the value of the metric of the current profiling info node. Returns nullptr, if the metric does
@@ -3415,7 +3391,7 @@ Returns the child node at the specified index.
 
 * @param info A profiling information object.
 * @param index The index of the child node.
-* @return The child node at the specified index. Must be freed with `duckdb_profiling_info_destroy`
+* @return The child node at the specified index.
 */
 DUCKDB_API duckdb_profiling_info duckdb_profiling_info_get_child(duckdb_profiling_info info, idx_t index);
 
