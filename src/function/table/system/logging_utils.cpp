@@ -30,7 +30,8 @@ static void EnableLogging(ClientContext &context, TableFunctionInput &data, Data
 	auto &log_manager = context.db->GetLogManager();
 
 	// Apply the config generated from the input
-	log_manager.SetConfig(*context.db, bind_data.config);
+	auto query_context = QueryContext(context);
+	log_manager.SetConfig(query_context, *context.db, bind_data.config);
 
 	if (bind_data.log_types_to_set.empty()) {
 		log_manager.SetEnableLogging(true);

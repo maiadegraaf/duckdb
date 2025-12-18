@@ -752,7 +752,7 @@ bool LocalFileSystem::ListFilesExtended(const string &directory,
 	return true;
 }
 
-void LocalFileSystem::FileSync(FileHandle &handle) {
+void LocalFileSystem::FileSync(QueryContext &context, FileHandle &handle) {
 	int fd = handle.Cast<UnixFileHandle>().fd;
 
 #if HAVE_FULLFSYNC

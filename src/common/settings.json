@@ -339,6 +339,13 @@
         ]
     },
     {
+        "name": "disable_fsync",
+        "description": "Disable fsync for all file writes",
+        "type": "BOOLEAN",
+        "default_scope": "global",
+        "default_value": "false"
+    },
+    {
         "name": "disable_timestamptz_casts",
         "description": "Disable casting from timestamp to timestamptz ",
         "type": "BOOLEAN",

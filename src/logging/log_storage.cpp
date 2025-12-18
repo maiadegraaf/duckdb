@@ -275,7 +275,8 @@ StdOutLogStorage::StdOutLogStorage(DatabaseInstance &db) : CSVLogStorage(db, fal
 StdOutLogStorage::~StdOutLogStorage() {
 }
 
-FileLogStorage::FileLogStorage(DatabaseInstance &db_p) : CSVLogStorage(db_p, true, STANDARD_VECTOR_SIZE), db(db_p) {
+FileLogStorage::FileLogStorage(QueryContext &context, DatabaseInstance &db_p)
+    : CSVLogStorage(db_p, true, STANDARD_VECTOR_SIZE), context(context), db(db_p) {
 	tables[LoggingTargetTable::ALL_LOGS] = TableWriter();
 	tables[LoggingTargetTable::LOG_CONTEXTS] = TableWriter();
 	tables[LoggingTargetTable::LOG_ENTRIES] = TableWriter();
@@ -318,7 +319,7 @@ void FileLogStorage::InitializeFile(DatabaseInstance &db, LoggingTargetTable tab
 	RegisterWriter(table, std::move(csv_writer));
 
 	// Ensures that the file is fully initialized when this function returns
-	file_writer->Sync();
+	file_writer->Sync(context);
 
 	table_writer.initialized = true;
 }
@@ -367,7 +368,7 @@ void FileLogStorage::BeforeFlush(LoggingTargetTable table, DataChunk &) {
 }
 
 void FileLogStorage::AfterFlush(LoggingTargetTable table, DataChunk &) {
-	tables[table].file_writer->Sync();
+	tables[table].file_writer->Sync(context);
 }
 
 void FileLogStorage::Initialize(LoggingTargetTable table) {

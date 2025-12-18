@@ -34,7 +34,7 @@ public:
 
 	void Truncate(FileHandle &handle, int64_t new_size) override;
 
-	void FileSync(FileHandle &handle) override;
+	void FileSync(QueryContext &context, FileHandle &handle) override;
 
 	// need to look up correct fs for this
 	bool DirectoryExists(const string &directory, optional_ptr<FileOpener> opener) override;

@@ -252,7 +252,7 @@ private:
 //! normalized (separate files for entries and contexts) or denormalized mode (single file)
 class FileLogStorage : public CSVLogStorage {
 public:
-	explicit FileLogStorage(DatabaseInstance &db);
+	explicit FileLogStorage(QueryContext &context, DatabaseInstance &db);
 	~FileLogStorage() override;
 
 	const string GetStorageName() override {
@@ -287,6 +287,9 @@ private:
 	//! Internal helper function to handle the BindReplace generation
 	unique_ptr<TableRef> BindReplaceInternal(ClientContext &context, TableFunctionBindInput &input, const string &path,
 	                                         const string &select_clause, const string &csv_columns);
+
+	//! The query context
+	QueryContext &context;
 
 	//! DB reference to get the DB filesystem
 	DatabaseInstance &db;

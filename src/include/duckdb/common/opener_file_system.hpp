@@ -58,8 +58,8 @@ public:
 		GetFileSystem().Truncate(handle, new_size);
 	}
 
-	void FileSync(FileHandle &handle) override {
-		GetFileSystem().FileSync(handle);
+	void FileSync(QueryContext &context, FileHandle &handle) override {
+		GetFileSystem().FileSync(context, handle);
 	}
 
 	bool DirectoryExists(const string &directory, optional_ptr<FileOpener> opener) override {

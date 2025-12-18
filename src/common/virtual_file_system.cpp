@@ -96,8 +96,8 @@ void VirtualFileSystem::Truncate(FileHandle &handle, int64_t new_size) {
 	handle.file_system.Truncate(handle, new_size);
 }
 
-void VirtualFileSystem::FileSync(FileHandle &handle) {
-	handle.file_system.FileSync(handle);
+void VirtualFileSystem::FileSync(QueryContext &context, FileHandle &handle) {
+	handle.file_system.FileSync(context, handle);
 }
 
 // need to look up correct fs for this

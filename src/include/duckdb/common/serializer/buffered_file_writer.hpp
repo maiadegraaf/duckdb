@@ -35,7 +35,7 @@ public:
 	//! Flush all changes to the file and then close the file
 	DUCKDB_API void Close();
 	//! Flush all changes and fsync the file to disk
-	DUCKDB_API void Sync();
+	DUCKDB_API void Sync(QueryContext &context);
 	//! Flush the buffer to the file (without sync)
 	DUCKDB_API void Flush();
 	//! Returns the current size of the file

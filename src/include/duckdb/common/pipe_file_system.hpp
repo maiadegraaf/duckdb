@@ -32,7 +32,7 @@ public:
 	bool IsPipe(const string &filename, optional_ptr<FileOpener> opener) override {
 		return true;
 	}
-	void FileSync(FileHandle &handle) override;
+	void FileSync(QueryContext &context, FileHandle &handle) override;
 
 	std::string GetName() const override {
 		return "PipeFileSystem";

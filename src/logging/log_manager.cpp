@@ -103,11 +103,11 @@ void LogManager::FlushCachedLogEntries(DataChunk &chunk, const RegisteredLogging
 	throw NotImplementedException("FlushCachedLogEntries");
 }
 
-void LogManager::SetConfig(DatabaseInstance &db, const LogConfig &config_p) {
+void LogManager::SetConfig(QueryContext &context, DatabaseInstance &db, const LogConfig &config_p) {
 	unique_lock<mutex> lck(lock);
 
 	// We need extra handling for switching storage
-	SetLogStorageInternal(db, config_p.storage);
+	SetLogStorageInternal(context, db, config_p.storage);
 
 	SetConfigInternal(config_p);
 }
@@ -150,12 +150,12 @@ void LogManager::SetDisabledLogTypes(optional_ptr<unordered_set<string>> disable
 	global_logger->UpdateConfig(config);
 }
 
-void LogManager::SetLogStorage(DatabaseInstance &db, const string &storage_name) {
+void LogManager::SetLogStorage(QueryContext &context, DatabaseInstance &db, const string &storage_name) {
 	unique_lock<mutex> lck(lock);
-	SetLogStorageInternal(db, storage_name);
+	SetLogStorageInternal(context, db, storage_name);
 }
 
-void LogManager::SetLogStorageInternal(DatabaseInstance &db, const string &storage_name) {
+void LogManager::SetLogStorageInternal(QueryContext &context, DatabaseInstance &db, const string &storage_name) {
 	auto storage_name_to_lower = StringUtil::Lower(storage_name);
 
 	if (config.storage == storage_name_to_lower) {
@@ -177,7 +177,7 @@ void LogManager::SetLogStorageInternal(DatabaseInstance &db, const string &stora
 	} else if (storage_name_to_lower == LogConfig::STDOUT_STORAGE_NAME) {
 		log_storage = make_shared_ptr<StdOutLogStorage>(db);
 	} else if (storage_name_to_lower == LogConfig::FILE_STORAGE_NAME) {
-		log_storage = make_shared_ptr<FileLogStorage>(db);
+		log_storage = make_shared_ptr<FileLogStorage>(context, db);
 	} else if (registered_log_storages.find(storage_name_to_lower) != registered_log_storages.end()) {
 		log_storage = registered_log_storages[storage_name_to_lower];
 	} else {

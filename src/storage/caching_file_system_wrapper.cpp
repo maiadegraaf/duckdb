@@ -83,7 +83,7 @@ void CachingFileSystemWrapper::Truncate(FileHandle &handle, int64_t new_size) {
 	                              "CachingFileSystemWrapper is a read-only caching filesystem.");
 }
 
-void CachingFileSystemWrapper::FileSync(FileHandle &handle) {
+void CachingFileSystemWrapper::FileSync(QueryContext &context, FileHandle &handle) {
 	throw NotImplementedException("CachingFileSystemWrapper: FileSync operations are not supported. "
 	                              "CachingFileSystemWrapper is a read-only caching filesystem.");
 }

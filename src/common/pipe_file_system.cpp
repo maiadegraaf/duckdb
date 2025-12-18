@@ -59,7 +59,7 @@ timestamp_t PipeFileSystem::GetLastModifiedTime(FileHandle &handle) {
 	return child_handle.file_system.GetLastModifiedTime(child_handle);
 }
 
-void PipeFileSystem::FileSync(FileHandle &handle) {
+void PipeFileSystem::FileSync(QueryContext &context, FileHandle &handle) {
 }
 
 unique_ptr<FileHandle> PipeFileSystem::OpenPipe(QueryContext context, unique_ptr<FileHandle> handle) {

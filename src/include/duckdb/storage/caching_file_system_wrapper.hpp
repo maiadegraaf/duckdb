@@ -78,7 +78,7 @@ public:
 	DUCKDB_API FileType GetFileType(FileHandle &handle) override;
 	DUCKDB_API FileMetadata Stats(FileHandle &handle) override;
 	DUCKDB_API void Truncate(FileHandle &handle, int64_t new_size) override;
-	DUCKDB_API void FileSync(FileHandle &handle) override;
+	DUCKDB_API void FileSync(QueryContext &context, FileHandle &handle) override;
 
 	DUCKDB_API bool DirectoryExists(const string &directory, optional_ptr<FileOpener> opener = nullptr) override;
 	DUCKDB_API void CreateDirectory(const string &directory, optional_ptr<FileOpener> opener = nullptr) override;

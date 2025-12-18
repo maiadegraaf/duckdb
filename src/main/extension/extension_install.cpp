@@ -226,10 +226,11 @@ static void WriteExtensionFileToDisk(FileSystem &fs, const string &path, void *d
 	target_file.reset();
 }
 
-static void WriteExtensionMetadataFileToDisk(FileSystem &fs, const string &path, ExtensionInstallInfo &metadata) {
+static void WriteExtensionMetadataFileToDisk(QueryContext &context, FileSystem &fs, const string &path,
+                                             ExtensionInstallInfo &metadata) {
 	auto file_writer = BufferedFileWriter(fs, path);
 	BinarySerializer::Serialize(metadata, file_writer);
-	file_writer.Sync();
+	file_writer.Sync(context);
 }
 
 string ExtensionHelper::ExtensionUrlTemplate(optional_ptr<const DatabaseInstance> db,
@@ -280,15 +281,16 @@ static void CheckExtensionMetadataOnInstall(DatabaseInstance &db, void *in_buffe
 //   1. Crash after extension removal: extension is now uninstalled, metadata file still present
 //   2. Crash after metadata removal: extension is now uninstalled, extension dir is clean
 //   3. Crash after extension move: extension is now uninstalled, new metadata file present
-static void WriteExtensionFiles(FileSystem &fs, const string &temp_path, const string &local_extension_path,
-                                void *in_buffer, idx_t file_size, ExtensionInstallInfo &info) {
+static void WriteExtensionFiles(QueryContext &context, FileSystem &fs, const string &temp_path,
+                                const string &local_extension_path, void *in_buffer, idx_t file_size,
+                                ExtensionInstallInfo &info) {
 	// Write extension to tmp file
 	WriteExtensionFileToDisk(fs, temp_path, in_buffer, file_size);
 
 	// Write metadata to tmp file
 	auto metadata_tmp_path = temp_path + ".info";
 	auto metadata_file_path = local_extension_path + ".info";
-	WriteExtensionMetadataFileToDisk(fs, metadata_tmp_path, info);
+	WriteExtensionMetadataFileToDisk(context, fs, metadata_tmp_path, info);
 
 	fs.MoveFile(metadata_tmp_path, metadata_file_path);
 	fs.MoveFile(temp_path, local_extension_path);

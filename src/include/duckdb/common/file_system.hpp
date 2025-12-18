@@ -86,7 +86,7 @@ public:
 	DUCKDB_API void Seek(idx_t location);
 	DUCKDB_API void Reset();
 	DUCKDB_API idx_t SeekPosition();
-	DUCKDB_API void Sync();
+	DUCKDB_API void Sync(QueryContext &context);
 	DUCKDB_API void Truncate(int64_t new_size);
 	DUCKDB_API string ReadLine();
 	DUCKDB_API string ReadLine(QueryContext context);
@@ -206,7 +206,7 @@ public:
 	//! Remvoe a file from disk if it exists - if it does not exist, return false
 	DUCKDB_API virtual bool TryRemoveFile(const string &filename, optional_ptr<FileOpener> opener = nullptr);
 	//! Sync a file handle to disk
-	DUCKDB_API virtual void FileSync(FileHandle &handle);
+	DUCKDB_API virtual void FileSync(QueryContext &context, FileHandle &handle);
 	//! Sets the working directory
 	DUCKDB_API static void SetWorkingDirectory(const string &path);
 	//! Gets the working directory

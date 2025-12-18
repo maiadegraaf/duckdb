@@ -74,9 +74,9 @@ void BufferedFileWriter::Close() {
 	handle.reset();
 }
 
-void BufferedFileWriter::Sync() {
+void BufferedFileWriter::Sync(QueryContext &context) {
 	Flush();
-	handle->Sync();
+	handle->Sync(context);
 }
 
 void BufferedFileWriter::Truncate(idx_t size) {

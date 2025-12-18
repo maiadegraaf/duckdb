@@ -575,7 +575,7 @@ bool FileSystem::TryRemoveFile(const string &filename, optional_ptr<FileOpener> 
 	return false;
 }
 
-void FileSystem::FileSync(FileHandle &handle) {
+void FileSystem::FileSync(QueryContext &context, FileHandle &handle) {
 	throw NotImplementedException("%s: FileSync is not implemented!", GetName());
 }
 
@@ -793,8 +793,8 @@ idx_t FileHandle::GetFileSize() {
 	return NumericCast<idx_t>(file_system.GetFileSize(*this));
 }
 
-void FileHandle::Sync() {
-	file_system.FileSync(*this);
+void FileHandle::Sync(QueryContext &context) {
+	file_system.FileSync(context, *this);
 }
 
 void FileHandle::Truncate(int64_t new_size) {

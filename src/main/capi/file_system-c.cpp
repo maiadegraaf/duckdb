@@ -244,7 +244,8 @@ duckdb_state duckdb_file_handle_sync(duckdb_file_handle file) {
 	}
 	auto cfile = reinterpret_cast<duckdb::CFileHandle *>(file);
 	try {
-		cfile->handle->Sync();
+		auto context = duckdb::QueryContext();
+		cfile->handle->Sync(context);
 		return DuckDBSuccess;
 	} catch (std::exception &ex) {
 		cfile->SetError(ex);

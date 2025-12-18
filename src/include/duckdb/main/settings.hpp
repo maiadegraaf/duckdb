@@ -476,6 +476,15 @@ struct DisableDatabaseInvalidationSetting {
 	static Value GetSetting(const ClientContext &context);
 };
 
+struct DisableFsyncSetting {
+	using RETURN_TYPE = bool;
+	static constexpr const char *Name = "disable_fsync";
+	static constexpr const char *Description = "Disable fsync for all file writes";
+	static constexpr const char *InputType = "BOOLEAN";
+	static constexpr const char *DefaultValue = "false";
+	static constexpr SetScope DefaultScope = SetScope::GLOBAL;
+};
+
 struct DisableTimestamptzCastsSetting {
 	using RETURN_TYPE = bool;
 	static constexpr const char *Name = "disable_timestamptz_casts";
