@@ -118,7 +118,7 @@ public:
 
 	//! Truncate the WAL to a previous size, and clear anything currently set in the writer
 	void Truncate(idx_t size);
-	void Flush();
+	void Flush(QueryContext &context);
 
 	void WriteCheckpoint(MetaBlockPointer meta_block);
 

@@ -521,7 +521,7 @@ void WriteAheadLog::WriteAlter(CatalogEntry &entry, const AlterInfo &info) {
 //===--------------------------------------------------------------------===//
 // FLUSH
 //===--------------------------------------------------------------------===//
-void WriteAheadLog::Flush() {
+void WriteAheadLog::Flush(QueryContext &context) {
 	if (!writer) {
 		return;
 	}
@@ -531,7 +531,7 @@ void WriteAheadLog::Flush() {
 	serializer.End();
 
 	// flushes all changes made to the WAL to disk
-	writer->Sync();
+	writer->Sync(context);
 	storage_manager.SetWALSize(writer->GetFileSize());
 }
 

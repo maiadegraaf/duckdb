@@ -56,7 +56,7 @@ public:
 	DUCKDB_API void SetLogLevel(LogLevel level);
 	DUCKDB_API void SetEnabledLogTypes(optional_ptr<unordered_set<string>> enabled_log_types);
 	DUCKDB_API void SetDisabledLogTypes(optional_ptr<unordered_set<string>> disabled_log_types);
-	DUCKDB_API void SetLogStorage(QueryContext &context, DatabaseInstance &db, const string &storage_name);
+	DUCKDB_API void SetLogStorage(QueryContext context, DatabaseInstance &db, const string &storage_name);
 
 	DUCKDB_API void UpdateLogStorageConfig(DatabaseInstance &db, case_insensitive_map_t<Value> &config_value);
 

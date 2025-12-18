@@ -912,14 +912,15 @@ void LoggingLevel::ResetGlobal(DatabaseInstance *db_p, DBConfig &config) {
 Value LoggingStorage::GetSetting(const ClientContext &context) {
 	return context.db->GetLogManager().GetConfig().storage;
 }
-void LoggingStorage::SetGlobal(DatabaseInstance *db_p, DBConfig &config, const Value &parameter) {
+void LoggingStorage::SetGlobal(QueryContext &context, DatabaseInstance *db_p, DBConfig &config,
+                               const Value &parameter) {
 	auto &db = GetDB<LoggingStorage>(db_p);
-	db.GetLogManager().SetLogStorage(db, parameter.GetValue<string>());
+	db.GetLogManager().SetLogStorage(context, db, parameter.GetValue<string>());
 }
 
-void LoggingStorage::ResetGlobal(DatabaseInstance *db_p, DBConfig &config) {
+void LoggingStorage::ResetGlobal(QueryContext &context, DatabaseInstance *db_p, DBConfig &config) {
 	auto &db = GetDB<LoggingStorage>(db_p);
-	db.GetLogManager().SetLogStorage(db, LogConfig::DEFAULT_LOG_STORAGE);
+	db.GetLogManager().SetLogStorage(context, db, LogConfig::DEFAULT_LOG_STORAGE);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1220,7 +1221,7 @@ void EnableHTTPLoggingSetting::SetLocal(ClientContext &context, const Value &inp
 		log_manager.SetLogLevel(HTTPLogType::LEVEL);
 		unordered_set<string> enabled_log_types = {HTTPLogType::NAME};
 		log_manager.SetEnabledLogTypes(enabled_log_types);
-		log_manager.SetLogStorage(*context.db, LogConfig::STDOUT_STORAGE_NAME);
+		log_manager.SetLogStorage(context, *context.db, LogConfig::STDOUT_STORAGE_NAME);
 	} else {
 		log_manager.SetEnableLogging(false);
 	}

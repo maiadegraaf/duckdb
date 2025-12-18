@@ -281,7 +281,7 @@ static void CheckExtensionMetadataOnInstall(DatabaseInstance &db, void *in_buffe
 //   1. Crash after extension removal: extension is now uninstalled, metadata file still present
 //   2. Crash after metadata removal: extension is now uninstalled, extension dir is clean
 //   3. Crash after extension move: extension is now uninstalled, new metadata file present
-static void WriteExtensionFiles(QueryContext &context, FileSystem &fs, const string &temp_path,
+static void WriteExtensionFiles(QueryContext context, FileSystem &fs, const string &temp_path,
                                 const string &local_extension_path, void *in_buffer, idx_t file_size,
                                 ExtensionInstallInfo &info) {
 	// Write extension to tmp file
@@ -367,7 +367,8 @@ static unique_ptr<ExtensionInstallInfo> DirectInstallExtension(DatabaseInstance 
 		info.repository_url = options.repository->path;
 	}
 
-	WriteExtensionFiles(fs, temp_path, local_extension_path, extension_decompressed, extension_decompressed_size, info);
+	WriteExtensionFiles(context, fs, temp_path, local_extension_path, extension_decompressed,
+	                    extension_decompressed_size, info);
 
 	return make_uniq<ExtensionInstallInfo>(info);
 }
@@ -457,7 +458,7 @@ static unique_ptr<ExtensionInstallInfo> InstallFromHttpUrl(DatabaseInstance &db,
 	}
 
 	auto fs = FileSystem::CreateLocal();
-	WriteExtensionFiles(*fs, temp_path, local_extension_path, (void *)decompressed_body.data(),
+	WriteExtensionFiles(context, *fs, temp_path, local_extension_path, (void *)decompressed_body.data(),
 	                    decompressed_body.size(), info);
 
 	return make_uniq<ExtensionInstallInfo>(info);

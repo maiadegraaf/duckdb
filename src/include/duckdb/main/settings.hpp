@@ -965,8 +965,8 @@ struct LoggingStorage {
 	static constexpr const char *Name = "logging_storage";
 	static constexpr const char *Description = "Set the logging storage (memory/stdout/file/<custom>)";
 	static constexpr const char *InputType = "VARCHAR";
-	static void SetGlobal(DatabaseInstance *db, DBConfig &config, const Value &parameter);
-	static void ResetGlobal(DatabaseInstance *db, DBConfig &config);
+	static void SetGlobal(QueryContext &context, DatabaseInstance *db, DBConfig &config, const Value &parameter);
+	static void ResetGlobal(QueryContext &context, DatabaseInstance *db, DBConfig &config);
 	static Value GetSetting(const ClientContext &context);
 };
 

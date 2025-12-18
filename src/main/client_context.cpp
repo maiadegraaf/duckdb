@@ -956,7 +956,9 @@ void ClientContext::LogQueryInternal(ClientContextLock &, const string &query) {
 	client_data->log_query_writer->WriteData(const_data_ptr_cast(query.c_str()), query.size());
 	client_data->log_query_writer->WriteData(const_data_ptr_cast("\n"), 1);
 	client_data->log_query_writer->Flush();
-	client_data->log_query_writer->Sync();
+
+	auto query_context = QueryContext(*this);
+	client_data->log_query_writer->Sync(query_context);
 }
 
 unique_ptr<QueryResult> ClientContext::Query(unique_ptr<SQLStatement> statement, QueryParameters parameters) {
