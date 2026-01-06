@@ -36,7 +36,7 @@ public:
 	//! Revert the commit
 	virtual void RevertCommit() = 0;
 	// Make the commit persistent
-	virtual void FlushCommit() = 0;
+	virtual void FlushCommit(QueryContext &context) = 0;
 
 	virtual void AddRowGroupData(DataTable &table, idx_t start_index, idx_t count,
 	                             unique_ptr<PersistentCollectionData> row_group_data) = 0;
@@ -75,7 +75,7 @@ public:
 	//! Gets the WAL of the StorageManager, or nullptr, if there is no WAL.
 	optional_ptr<WriteAheadLog> GetWAL();
 	//! Write that we started a checkpoint to the WAL if there is one - returns whether or not there is a WAL
-	bool WALStartCheckpoint(MetaBlockPointer meta_block, CheckpointOptions &options);
+	bool WALStartCheckpoint(QueryContext &context, MetaBlockPointer meta_block, CheckpointOptions &options);
 	//! Finishes a checkpoint
 	void WALFinishCheckpoint();
 	// Get the WAL lock

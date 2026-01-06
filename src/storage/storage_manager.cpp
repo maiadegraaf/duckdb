@@ -135,7 +135,8 @@ bool StorageManager::HasWAL() const {
 	return true;
 }
 
-bool StorageManager::WALStartCheckpoint(MetaBlockPointer meta_block, CheckpointOptions &options) {
+bool StorageManager::WALStartCheckpoint(QueryContext &context, MetaBlockPointer meta_block,
+                                        CheckpointOptions &options) {
 	lock_guard<mutex> guard(wal_lock);
 	// while holding the WAL lock - get the last committed transaction from the transaction manager
 	// this is the commit we will be checkpointing on - everything in this commit will be written to the file
@@ -159,7 +160,7 @@ bool StorageManager::WALStartCheckpoint(MetaBlockPointer meta_block, CheckpointO
 	}
 	// write to the main WAL that we have initiated a checkpoint
 	wal->WriteCheckpoint(meta_block);
-	wal->Flush();
+	wal->Flush(context);
 
 	// close the main WAL
 	wal.reset();
@@ -497,7 +498,7 @@ public:
 	//! Revert the commit
 	void RevertCommit() override;
 	// Make the commit persistent
-	void FlushCommit() override;
+	void FlushCommit(QueryContext &context) override;
 
 	void AddRowGroupData(DataTable &table, idx_t start_index, idx_t count,
 	                     unique_ptr<PersistentCollectionData> row_group_data) override;
@@ -548,11 +549,11 @@ void SingleFileStorageCommitState::RevertCommit() {
 	state = WALCommitState::TRUNCATED;
 }
 
-void SingleFileStorageCommitState::FlushCommit() {
+void SingleFileStorageCommitState::FlushCommit(QueryContext &context) {
 	if (state != WALCommitState::IN_PROGRESS) {
 		return;
 	}
-	wal.Flush();
+	wal.Flush(context);
 	state = WALCommitState::FLUSHED;
 }
 
