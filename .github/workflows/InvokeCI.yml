@@ -63,6 +63,18 @@ jobs:
       git_ref: ${{ inputs.git_ref }}
       skip_tests: ${{ inputs.skip_tests }}
 
+  check-release-binary:
+    needs:
+      - osx
+      - linux-release
+      - windows
+    uses: ./.github/workflows/CheckReleaseBinary.yml
+    with:
+      override_git_describe: ${{ inputs.override_git_describe || 'v1.2.0' }}
+      git_ref: ${{ inputs.git_ref }}
+      prev_version: 'v1.1.0'
+      current_hash: ${{ github.sha }}
+
   prepare-status:
     runs-on: ubuntu-latest
     if: always()
@@ -72,6 +84,7 @@ jobs:
       - linux-release
       - windows
       - static-libraries
+      - check-release-binary
     outputs:
       is-success: ${{ steps.set-output.outputs.success }}
     steps:
@@ -82,7 +95,8 @@ jobs:
                 "${{ needs.osx.result }}" == "success" && \
                 "${{ needs.linux-release.result }}" == "success" && \
                 "${{ needs.windows.result }}" == "success" && \
-                "${{ needs.static-libraries.result }}" == "success" ]]; then
+                "${{ needs.static-libraries.result }}" == "success" && \
+                "${{ needs.check-release-binary.result }}" == "success" ]]; then
             echo "success=true" >> $GITHUB_OUTPUT
           else
             echo "success=false" >> $GITHUB_OUTPUT

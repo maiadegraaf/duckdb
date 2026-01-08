@@ -1,0 +1,89 @@
+name: CheckReleaseBinary
+on:
+  workflow_call:
+    inputs:
+      override_git_describe:
+        type: string
+        required: true
+      git_ref:
+        type: string
+      prev_version:
+        type: string
+      current_hash:
+        type: string
+  workflow_dispatch:
+    inputs:
+      override_git_describe:
+        type: string
+        description: 'The version to be released (e.g. v1.2.0)'
+        required: true
+      git_ref:
+        type: string
+        description: 'The git ref to check out'
+      prev_version:
+        type: string
+        description: 'The previous version to test against for compatibility'
+      current_hash:
+        type: string
+        description: 'The hash of the version to be released'
+
+concurrency:
+  group: checkreleasebinary-${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref || '' }}-${{ github.base_ref || '' }}-${{ github.ref != 'refs/heads/main' || github.sha }}-${{ inputs.override_git_describe }}-${{ inputs.git_ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-release-binary:
+    name: Check Release Binary (${{ matrix.config.arch }})
+    runs-on: ${{ matrix.config.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {runner: ubuntu-latest, arch: linux-amd64, artifact: duckdb-binaries-linux-amd64, binary: duckdb, extension_platform: linux_amd64}
+          - {runner: ubuntu-24.04-arm, arch: linux-arm64, artifact: duckdb-binaries-linux-arm64, binary: duckdb, extension_platform: linux_arm64}
+          - {runner: macos-latest, arch: osx-universal, artifact: duckdb-binaries-osx, binary: duckdb, extension_platform: osx_arm64}
+          - {runner: windows-latest, arch: windows-amd64, artifact: duckdb-binaries-windows-amd64, binary: Release/duckdb.exe, extension_platform: windows_amd64}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.git_ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.config.artifact }}
+          path: /tmp/target_duckdb
+
+      - name: Setup Binary
+        shell: bash
+        run: |
+          if [[ "${{ matrix.config.arch }}" == "windows-amd64" ]]; then
+            unzip /tmp/target_duckdb/duckdb_cli-windows-amd64.zip -d /tmp/target_duckdb
+            echo "DUCKDB_BINARY=/tmp/target_duckdb/duckdb.exe" >> $GITHUB_ENV
+          elif [[ "${{ matrix.config.arch }}" == "osx-universal" ]]; then
+            unzip /tmp/target_duckdb/duckdb_cli-osx-universal.zip -d /tmp/target_duckdb
+            echo "DUCKDB_BINARY=/tmp/target_duckdb/duckdb" >> $GITHUB_ENV
+          elif [[ "${{ matrix.config.arch }}" == "linux-arm64" ]]; then
+            unzip /tmp/target_duckdb/duckdb_cli-linux-arm64.zip -d /tmp/target_duckdb
+            echo "DUCKDB_BINARY=/tmp/target_duckdb/duckdb" >> $GITHUB_ENV
+          else
+            unzip /tmp/target_duckdb/duckdb_cli-linux-amd64.zip -d /tmp/target_duckdb
+            echo "DUCKDB_BINARY=/tmp/target_duckdb/duckdb" >> $GITHUB_ENV
+          fi
+
+      - name: Run Check Release Binary
+        shell: bash
+        run: |
+          bash scripts/check_release_binary.sh \
+            --binary "$DUCKDB_BINARY" \
+            --prev-version "${{ inputs.prev_version }}" \
+            --current-version "${{ inputs.override_git_describe }}" \
+            --current-hash "${{ inputs.current_hash }}" \
+            --repo-root "." \
+            --platform "${{ matrix.config.extension_platform }}"
