@@ -21,10 +21,6 @@ while [[ $# -gt 0 ]]; do
       CURRENT_HASH="$2"
       shift 2
       ;;
-    --repo-root)
-      REPO_ROOT="$2"
-      shift 2
-      ;;
     --platform)
       EXTENSION_PLATFORM="$2"
       shift 2
@@ -122,6 +118,11 @@ if [ -z "$DUCKDB_BINARY" ]; then
   fi
 fi
 
+if [ ! -f "$DUCKDB_BINARY" ]; then
+  echo "Could not locate duckdb binary"
+  exit 1
+fi
+
 if [ -z "$PREV_VERSION" ]; then
   PREV_VERSION="v1.2.0"
 fi
@@ -142,21 +143,15 @@ $PYTHON_VENV -m pip install duckdb=="$PREV_VERSION"
 $PYTHON_VENV -c "import duckdb;print(f'Installed DuckDB version: {duckdb.query(\"pragma version\").fetchone()[0]}')"
 
 # Run the python check script
-CMD="$PYTHON_EXE scripts/check_release_binary.py \
+CMD="$PYTHON_VENV scripts/check_release_binary.py \
   --binary \"$DUCKDB_BINARY\" \
   --current-version \"$CURRENT_VERSION\" \
-  --platform \"$EXTENSION_PLATFORM\""
+  --platform \"$EXTENSION_PLATFORM\"
+  --prev-version \"$PREV_VERSION\" \
+"
 
 if [ -n "$CURRENT_HASH" ]; then
   CMD="$CMD --current-hash \"$CURRENT_HASH\""
-fi
-
-if [ -n "$REPO_ROOT" ]; then
-  CMD="$CMD --repo-root \"$REPO_ROOT\""
-fi
-
-if [ -n "$PREV_VERSION" ]; then
-  CMD="$CMD --prev-version \"$PREV_VERSION\" --python-venv \"$PYTHON_VENV\""
 fi
 
 eval $CMD

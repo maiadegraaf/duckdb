@@ -9,6 +9,7 @@ on:
         type: string
       prev_version:
         type: string
+        default: v1.2.0
       current_hash:
         type: string
   workflow_dispatch:
@@ -23,6 +24,7 @@ on:
       prev_version:
         type: string
         description: 'The previous version to test against for compatibility'
+        default: v1.2.0
       current_hash:
         type: string
         description: 'The hash of the version to be released'
@@ -85,5 +87,4 @@ jobs:
             --prev-version "${{ inputs.prev_version }}" \
             --current-version "${{ inputs.override_git_describe }}" \
             --current-hash "${{ inputs.current_hash }}" \
-            --repo-root "." \
             --platform "${{ matrix.config.extension_platform }}"

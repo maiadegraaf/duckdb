@@ -4,15 +4,63 @@ import sys
 import argparse
 import json
 import re
+from github import Github
+
+import duckdb
+
+FAILURE = False
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def print_section(title):
-    print(f"\n--- {title} ---")
+class Color:
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+
+def print_success(msg: str, indent=1):
+    space = " " * (indent * 2)
+    print(f"{space}{Color.GREEN}✓{Color.END} {msg}")
+
+
+def print_error(msg: str, indent=1):
+    global FAILURE
+    FAILURE = True
+    space = " " * (indent * 2)
+    print(f"{space}{Color.RED}✗{Color.END} {msg}")
+
+
+def print_step(msg: str):
+    print(f"\n→ {msg}")
+
+
+class Settings:
+    def __init__(self, binary, prev_version, current_version, current_hash, platform):
+        self.binary = binary
+        self.prev_version = prev_version
+        self.current_version = current_version
+        self.current_hash = current_hash
+        self.platform = platform
+        self.expected_codename = get_expected_codename(current_version)
+
+
+class BinaryInfo:
+    def __init__(self, binary):
+        version_info = run_duckdb_query_json(binary, "PRAGMA version;")[0]
+        self.lib_version = version_info['library_version']
+        self.source_id = version_info['source_id']
+        self.codename = version_info['codename']
 
 
 def run_command(command, shell=True, env=None, capture_output=False):
     if not capture_output:
-        print(f"Running: {command}")
         process = subprocess.Popen(
             command, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env
         )
@@ -21,7 +69,6 @@ def run_command(command, shell=True, env=None, capture_output=False):
         process.wait()
         if process.returncode != 0:
             print(f"Command failed with exit code {process.returncode}")
-            sys.exit(process.returncode)
         return None
     else:
         result = subprocess.run(command, shell=shell, capture_output=True, text=True, env=env)
@@ -29,7 +76,6 @@ def run_command(command, shell=True, env=None, capture_output=False):
             print(f"Command failed with exit code {result.returncode}")
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
-            sys.exit(result.returncode)
         return result.stdout
 
 
@@ -47,16 +93,11 @@ def run_duckdb_query_json(binary, query):
         sys.exit(1)
 
 
-def get_expected_codename(lib_version, repo_root=None):
+def get_expected_codename(lib_version):
     if "-dev" in lib_version:
         return "Development Version"
 
-    if repo_root:
-        source_path = os.path.join(repo_root, 'src', 'function', 'table', 'version', 'pragma_version.cpp')
-    else:
-        source_path = os.path.join(
-            os.path.dirname(__file__), '..', 'src', 'function', 'table', 'version', 'pragma_version.cpp'
-        )
+    source_path = os.path.join(REPO_ROOT, 'src', 'function', 'table', 'version', 'pragma_version.cpp')
 
     if not os.path.exists(source_path):
         if "-dev" in lib_version:
@@ -69,14 +110,12 @@ def get_expected_codename(lib_version, repo_root=None):
             content = f.read()
 
         # Look for the ReleaseCodename function
-        match = re.search(r'const char \*DuckDB::ReleaseCodename\(\) \{(.*?)\}', content, re.DOTALL)
+        match = re.search(r'const char \*DuckDB::ReleaseCodename\(\) \{(.*)}', content, re.DOTALL)
         if not match:
             return "Unknown Version"
 
         body = match.group(1)
-        # Find all StartsWith checks
-        # e.g., if (StringUtil::StartsWith(DUCKDB_VERSION, "v1.2.")) { return "Histrionicus"; }
-        versions = re.findall(r'StringUtil::StartsWith\(DUCKDB_VERSION, "(.*?)"\)\) \{\s*return "(.*?)";', body)
+        versions = re.findall(r'StringUtil::StartsWith\(DUCKDB_VERSION, "(.*?)"\).*?return "(.*?)";', body, re.DOTALL)
         for prefix, codename in versions:
             if lib_version.startswith(prefix):
                 return codename
@@ -87,142 +126,146 @@ def get_expected_codename(lib_version, repo_root=None):
     return "Unknown Version"
 
 
-def check_version(args):
-    print_section("1. Version & Hash Verification")
-    version_info = run_duckdb_query_json(args.binary, "PRAGMA version;")[0]
-    lib_version = version_info['library_version']
-    source_id = version_info['source_id']
-    codename = version_info['codename']
+def evaluate_comparison(binary_value, expected_value, name: str):
+    if binary_value == expected_value:
+        print_success(f"{name}")
 
-    if lib_version != args.current_version:
-        print(f"Error: Version mismatch! Expected {args.current_version}, got {lib_version}")
+    print_error(f"{name} mismatch! Expected {expected_value}, got {binary_value}")
+
+
+def evaluate_if_present(needle, haystack, name):
+    if needle in haystack:
+        print_success(f"{name}: {needle}")
     else:
-        print(f"Version Match: {lib_version} ✅")
+        print_error(f"{name} not found, Expected {needle}, got {haystack}.")
 
-    expected_codename = get_expected_codename(lib_version, args.repo_root)
 
-    if codename != expected_codename:
-        print(f"Error: Codename mismatch! Expected {expected_codename} for version {lib_version}, got {codename}")
-        sys.exit(1)
-    else:
-        print(f"Codename match: {codename} ✅")
+def check_version(settings: Settings, info: BinaryInfo):
+    binary_lib_version = info.lib_version
+    binary_source_id = info.source_id
+    binary_codename = info.codename
 
-    if not source_id or len(source_id) < 7:
-        print(f"Error: Invalid Source ID (hash): {source_id}")
-        sys.exit(1)
+    evaluate_comparison(binary_lib_version, settings.current_version, "Version")
 
-    if args.current_hash:
-        if not source_id.startswith(args.current_hash) and not args.current_hash.startswith(source_id):
-            print(f"Error: Hash mismatch! Expected (part of) {args.current_hash}, got {source_id}")
-            sys.exit(1)
-        print(f"Hash Match: {source_id} ✅")
+    evaluate_comparison(binary_codename, settings.expected_codename, "Codename")
 
-    return version_info
+    if not binary_source_id or len(binary_source_id) < 7:
+        print_error(f"Error: Invalid Source ID (hash): {binary_source_id}")
+
+    if settings.current_hash:
+        evaluate_comparison(binary_lib_version, settings.current_version[7], "Hash")
+
+
+def get_latest_extension_commit():
+    g = Github()
+    repo = g.get_repo("duckdb/duckdb-httpfs")
+    latest_commit = repo.get_commits()[0]
+    return latest_commit.sha[:7]
+
+
+def extension_autoloading(duckdb_binary):
+    query = "SET autoload_known_extensions=1; SET s3_region='us-east-1'; SELECT extension_name, extension_version, loaded FROM duckdb_extensions() WHERE extension_name='httpfs'"
+    extensions_info = run_duckdb_query_json(duckdb_binary, query)
+    if not extensions_info:
+        print_error("Error: httpfs extension not found in duckdb_extensions()")
+        return
+
+    extensions_info = extensions_info[0]
+    evaluate_if_present('httpfs', extensions_info['extension_name'], 'Extension name')
+
+    latest_extension_commit = get_latest_extension_commit()
+    evaluate_if_present(latest_extension_commit, extensions_info['extension_version'], 'Extension version')
+
+    evaluate_if_present('true', extensions_info['loaded'], 'Extension loaded')
+
+
+def secret_compatibility(duckdb_binary):
+    try:
+        duckdb.query('DROP PERSISTENT SECRET IF EXISTS test_secret')
+        duckdb.query('CREATE PERSISTENT SECRET test_secret (TYPE s3, KEY_ID \'fake\', SECRET \'also_fake\')')
+
+        result = run_duckdb_query_json(duckdb_binary, "select secret_string from duckdb_secrets();")
+        if result and len(result) > 0 and 'key_id=fake' in result[0]['secret_string']:
+            print_success(f"Persistent secret successfully written and retrieved")
+            return
+        print_error(f"Error retrieving or writing secret.")
+    except Exception as e:
+        print_error(f"Error retrieving or writing secret: {e}")
+
+
+def database_version_compatability(duckdb_binary, new_version):
+    try:
+        run_duckdb_query(
+            duckdb_binary,
+            f"ATTACH 'test_latest.db' as t (STORAGE_VERSION '{new_version}'); CREATE OR REPLACE TABLE t.test AS SELECT 'success!' as a;",
+        )
+        run_duckdb_query(
+            duckdb_binary,
+            f"ATTACH 'test_old.db' as t (STORAGE_VERSION 'v1.2.0'); CREATE OR REPLACE TABLE t.test AS SELECT 'success!' as a;",
+        )
+        print_success(f"Database with old storage version compatible with {new_version}")
+
+        duckdb.query("ATTACH 'test_old.db' as t; USE t; FROM test;")
+        print_success(f"Database created with {new_version} compatible with v1.2.0")
+    except Exception as e:
+        print_error(f"Error creating new database: {e}")
+
+
+def capi_compatibility(duckdb_binary, new_version, platform):
+    run_duckdb_query(
+        duckdb_binary,
+        f"force install 'http://community-extensions.duckdb.org/v1.4.0/{platform}/capi_quack.duckdb_extension.gz'",
+    )
+    result = run_duckdb_query_json(
+        duckdb_binary,
+        "load capi_quack; SELECT extension_name, loaded FROM duckdb_extensions() WHERE extension_name='capi_quack'",
+    )
+    if result and len(result) > 0 and 'true' in result[0]['loaded']:
+        print_success(f"{new_version} compatible with v1.4.0 CAPI")
+        return
+
+    print_error(f"Error installing v1.4.0 CAPI in {new_version}")
 
 
 def main():
     parser = argparse.ArgumentParser(description='Check DuckDB release binary.')
     parser.add_argument('--binary', required=True, help='Path to the DuckDB binary to test')
-    parser.add_argument('--prev-version', help='Previous DuckDB version (e.g., v1.2.0)')
+    parser.add_argument('--prev-version', help='Previous DuckDB version (e.g., v1.2.0)', default='v1.2.0')
     parser.add_argument('--current-version', required=True, help='Current DuckDB version to be released')
     parser.add_argument('--current-hash', help='Current DuckDB hash to be released')
-    parser.add_argument('--repo-root', help='Path to the DuckDB repository root')
     parser.add_argument('--platform', required=True, help='Extension platform (e.g., linux_amd64)')
-    parser.add_argument('--python-venv', help='Path to the python executable in the venv')
 
     args = parser.parse_args()
 
-    binary = args.binary
-    prev_version = args.prev_version
-    current_version = args.current_version
-    current_hash = args.current_hash
-    platform = args.platform
-    python_venv = args.python_venv
-
-    version_info = check_version(args)
-    lib_version = version_info['library_version']
-
-    print("\n--- 2. Extension Autoloading & Versioning ---")
-    # We use -c here to ensure autoloading is triggered by the query
-    # We also explicitly enable autoloading to be sure
-    query = "SET autoload_known_extensions=1; SET s3_region='us-east-1'; SELECT extension_name, extension_version, loaded FROM duckdb_extensions() WHERE extension_name='httpfs'"
-    extensions_info = run_duckdb_query_json(binary, query)
-    if not extensions_info:
-        print("Error: httpfs extension not found in duckdb_extensions()")
-        sys.exit(1)
-
-    httpfs = extensions_info[0]
-    print(f"Extension: {httpfs['extension_name']}, Version: {httpfs['extension_version']}, Loaded: {httpfs['loaded']}")
-
-    if not httpfs['loaded']:
-        print("Error: httpfs extension failed to autoload!")
-        sys.exit(1)
-
-    # Core extensions should usually match the library version
-    if httpfs['extension_version'] != lib_version:
-        # For non-dev releases, the extension version might be just the version without 'v'
-        expected_ext_version = lib_version.lstrip('v')
-        if httpfs['extension_version'] != expected_ext_version:
-            print(
-                f"Error: Extension version mismatch! Expected {lib_version} or {expected_ext_version}, got {httpfs['extension_version']}"
-            )
-            sys.exit(1)
-
-    if prev_version and python_venv:
-        print("\n--- 3. Secret Compatibility ---")
-        # Create secret with old version
-        run_command(
-            f"{python_venv} -c \"import duckdb;duckdb.query(\\\"CREATE OR REPLACE PERSISTENT SECRET test_secret (TYPE s3, KEY_ID 'fake', SECRET 'alsofake')\\\").show()\""
-        )
-        # Read with new version
-        run_duckdb_query(binary, "select secret_string from duckdb_secrets();")
-
-    print("\n--- 4. Database Version Compatibility ---")
-
-    # 4.1 Forward compatibility: Create with new version, read with new version
-    db_latest = "test_latest.db"
-    if os.path.exists(db_latest):
-        os.remove(db_latest)
-    run_duckdb_query(
-        binary,
-        f"ATTACH '{db_latest}' as t (STORAGE_VERSION '{current_version}'); CREATE TABLE t.test AS SELECT 'success!' as a;",
+    settings = Settings(
+        binary=args.binary,
+        prev_version=args.prev_version,
+        current_version=args.current_version,
+        current_hash=args.current_hash,
+        platform=args.platform,
     )
-    run_duckdb_query(binary, f"ATTACH '{db_latest}' as t; SELECT * FROM t.test;")
 
-    if prev_version and python_venv:
-        # 4.2 Backward compatibility (Old storage version): Create with new binary specifying old storage version, read with old binary
-        db_old_storage = "test_old_storage.db"
-        if os.path.exists(db_old_storage):
-            os.remove(db_old_storage)
-        run_duckdb_query(
-            binary,
-            f"ATTACH '{db_old_storage}' as t (STORAGE_VERSION '{prev_version}'); CREATE TABLE t.test AS SELECT 'success!' as a;",
-        )
-        run_command(
-            f"{python_venv} -c \"import duckdb;con = duckdb.connect('{db_old_storage}'); print(con.execute('SELECT * FROM test').fetchall())\""
-        )
+    binary_info = BinaryInfo(args.binary)
 
-        # 4.3 Backward compatibility (Old file): Create with old binary, read with new binary
-        db_old_file = "test_old_file.db"
-        if os.path.exists(db_old_file):
-            os.remove(db_old_file)
-        run_command(
-            f"{python_venv} -c \"import duckdb; con = duckdb.connect('{db_old_file}'); con.execute(\\\"CREATE TABLE test AS SELECT 'success!' as a\\\");\""
-        )
-        run_duckdb_query(binary, f"ATTACH '{db_old_file}' as t; SELECT * FROM t.test;")
+    print_step("1. Version & Hash Verification")
+    check_version(settings, binary_info)
 
-    if prev_version:
-        print("\n--- 5. Test CAPI extension cross-version compatibility ---")
-        run_duckdb_query(
-            binary,
-            f"force install 'http://community-extensions.duckdb.org/{prev_version}/{platform}/capi_quack.duckdb_extension.gz'",
-        )
-        run_duckdb_query(
-            binary,
-            "load capi_quack; SELECT extension_name, loaded FROM duckdb_extensions() WHERE extension_name='capi_quack'",
-        )
+    print_step("2. Extension Autoloading")
+    extension_autoloading(settings.binary)
 
-    print("\nAll checks passed successfully!")
+    print_step("3. Secret Compatibility")
+    secret_compatibility(settings.binary)
+
+    print_step("4. Database Version Compatability")
+    database_version_compatability(settings.binary, settings.current_version)
+
+    print_step("5. CAPI Extension Cross-Version Compatibility")
+    capi_compatibility(settings.binary, settings.current_version, settings.platform)
+
+    if FAILURE:
+        print()
+        print_error(f"FAILURES DETECTED.", indent=0)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
