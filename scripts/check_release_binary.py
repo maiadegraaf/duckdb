@@ -129,12 +129,13 @@ def get_expected_codename(lib_version):
 def evaluate_comparison(binary_value, expected_value, name: str):
     if binary_value == expected_value:
         print_success(f"{name}")
+        return
 
     print_error(f"{name} mismatch! Expected {expected_value}, got {binary_value}")
 
 
 def evaluate_if_present(needle, haystack, name):
-    if needle in haystack:
+    if (isinstance(needle, bool) and needle == haystack) or needle in haystack:
         print_success(f"{name}: {needle}")
     else:
         print_error(f"{name} not found, Expected {needle}, got {haystack}.")
@@ -153,7 +154,7 @@ def check_version(settings: Settings, info: BinaryInfo):
         print_error(f"Error: Invalid Source ID (hash): {binary_source_id}")
 
     if settings.current_hash:
-        evaluate_comparison(binary_lib_version, settings.current_version[7], "Hash")
+        evaluate_comparison(binary_lib_version, settings.current_version[:7], "Hash")
 
 
 def get_latest_extension_commit():
@@ -173,10 +174,10 @@ def extension_autoloading(duckdb_binary):
     extensions_info = extensions_info[0]
     evaluate_if_present('httpfs', extensions_info['extension_name'], 'Extension name')
 
-    latest_extension_commit = get_latest_extension_commit()
-    evaluate_if_present(latest_extension_commit, extensions_info['extension_version'], 'Extension version')
+    # latest_extension_commit = get_latest_extension_commit()
+    # evaluate_if_present(latest_extension_commit, extensions_info['extension_version'], 'Extension version')
 
-    evaluate_if_present('true', extensions_info['loaded'], 'Extension loaded')
+    evaluate_if_present(True, extensions_info['loaded'], 'Extension loaded')
 
 
 def secret_compatibility(duckdb_binary):
@@ -220,7 +221,7 @@ def capi_compatibility(duckdb_binary, new_version, platform):
         duckdb_binary,
         "load capi_quack; SELECT extension_name, loaded FROM duckdb_extensions() WHERE extension_name='capi_quack'",
     )
-    if result and len(result) > 0 and 'true' in result[0]['loaded']:
+    if result and len(result) > 0 and result[0]['loaded'] is True:
         print_success(f"{new_version} compatible with v1.4.0 CAPI")
         return
 

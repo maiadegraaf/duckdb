@@ -74,18 +74,18 @@ if [ -z "$DUCKDB_BINARY" ]; then
   echo "Binary not provided. Downloading latest for platform: $EXTENSION_PLATFORM"
   mkdir -p /tmp
   
-  # Determine download URL based on platform
+  # Determine download URL based on platform and current version
   if [[ "$EXTENSION_PLATFORM" == "osx_arm64" || "$EXTENSION_PLATFORM" == "osx_amd64" ]]; then
-    URL="https://artifacts.duckdb.org/latest/duckdb-binaries-osx.zip"
-    ZIP="/tmp/duckdb-binaries-osx.zip"
+    URL="https://duckdb-staging.duckdb.org/$CURRENT_HASH/$CURRENT_VERSION/duckdb/duckdb/github_release/duckdb_cli-osx-universal.zip"
+    ZIP="/tmp/duckdb_cli-osx-universal.zip"
   elif [[ "$EXTENSION_PLATFORM" == "linux_amd64" ]]; then
-    URL="https://artifacts.duckdb.org/latest/duckdb-binaries-linux-amd64.zip"
+    URL="https://duckdb-staging.duckdb.org/$CURRENT_HASH/$CURRENT_VERSION/duckdb/duckdb/github_release/duckdb-binaries-linux-amd64.zip"
     ZIP="/tmp/duckdb-binaries-linux-amd64.zip"
   elif [[ "$EXTENSION_PLATFORM" == "linux_arm64" ]]; then
-    URL="https://artifacts.duckdb.org/latest/duckdb-binaries-linux-arm64.zip"
+    URL="https://duckdb-staging.duckdb.org/$CURRENT_HASH/$CURRENT_VERSION/duckdb/duckdb/github_release/duckdb-binaries-linux-arm64.zip"
     ZIP="/tmp/duckdb-binaries-linux-arm64.zip"
   elif [[ "$EXTENSION_PLATFORM" == "windows_amd64" || "$EXTENSION_PLATFORM" == "windows_arm64" ]]; then
-    URL="https://artifacts.duckdb.org/latest/duckdb-binaries-windows.zip"
+    URL="https://duckdb-staging.duckdb.org/$CURRENT_HASH/$CURRENT_VERSION/duckdb/duckdb/github_release/duckdb-binaries-windows.zip"
     ZIP="/tmp/duckdb-binaries-windows.zip"
   else
     echo "Unknown platform for automatic download: $EXTENSION_PLATFORM"
