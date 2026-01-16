@@ -25,6 +25,21 @@ class Color:
     END = '\033[0m'
 
 
+def print_msg_box(msg, indent=1, width=None, title=None):
+    """Print message-box with optional title."""
+    lines = msg.split('\n')
+    space = " " * indent
+    if not width:
+        width = max(map(len, lines))
+    box = f'╔{"═" * (width + indent * 2)}╗\n'  # upper_border
+    if title:
+        box += f'║{space}{title:<{width}}{space}║\n'  # title
+        box += f'║{space}{"-" * len(title):<{width}}{space}║\n'  # underscore
+    box += ''.join([f'║{space}{line:<{width}}{space}║\n' for line in lines])
+    box += f'╚{"═" * (width + indent * 2)}╝'  # lower_border
+    print(box)
+
+
 def print_success(msg: str, indent=1):
     space = " " * (indent * 2)
     print(f"{space}{Color.GREEN}✓{Color.END} {msg}")
@@ -248,6 +263,9 @@ def main():
 
     binary_info = BinaryInfo(args.binary)
 
+    print("\n\n")
+    print_msg_box("TESTING DUCKDB RELEASE BINARY")
+
     print_step("1. Version & Hash Verification")
     check_version(settings, binary_info)
 
@@ -264,8 +282,8 @@ def main():
     capi_compatibility(settings.binary, settings.current_version, settings.platform)
 
     if FAILURE:
-        print()
-        print_error(f"FAILURES DETECTED.", indent=0)
+        print("\n\n")
+        print_msg_box(Color.RED + "FAILURES DETECTED" + Color.END)
         sys.exit(1)
 
 

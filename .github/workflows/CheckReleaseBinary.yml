@@ -45,6 +45,7 @@ jobs:
           - { runner: ubuntu-24.04-arm, arch: linux-arm64, extension_platform: linux_arm64 }
           - { runner: macos-latest, arch: osx-universal, extension_platform: osx_arm64 }
           - { runner: windows-latest, arch: windows-amd64, extension_platform: windows_amd64 }
+          - { runner: windows-latest, arch: windows-arm64, extension_platform: windows-arm64}
 
     steps:
       - uses: actions/checkout@v4
