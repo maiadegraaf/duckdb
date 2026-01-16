@@ -142,6 +142,9 @@ fi
 $PYTHON_VENV -m pip install duckdb=="$PREV_VERSION"
 $PYTHON_VENV -c "import duckdb;print(f'Installed DuckDB version: {duckdb.query(\"pragma version\").fetchone()[0]}')"
 
+# install PyGithub in venv
+$PYTHON_VENV -m pip install PyGithub
+
 # Run the python check script
 CMD="$PYTHON_VENV scripts/check_release_binary.py \
   --binary \"$DUCKDB_BINARY\" \
