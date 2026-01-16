@@ -48,9 +48,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.git_ref }}
 
       - uses: actions/setup-python@v5
         with:
