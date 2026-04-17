@@ -83,7 +83,6 @@ int64_t SequenceCatalogEntry::NextValue(DuckTransaction &transaction) {
 
 int64_t SequenceCatalogEntry::SetValue(int64_t value) {
 	int64_t result;
-
 }
 
 void SequenceCatalogEntry::ReplayValue(uint64_t v_usage_count, int64_t v_counter) {
