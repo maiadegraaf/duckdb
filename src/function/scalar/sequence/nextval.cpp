@@ -177,8 +177,7 @@ ScalarFunction CurrvalFun::GetFunction() {
 
 ScalarFunction SetvalFun::GetFunction() {
 	ScalarFunction set_val("setval", {LogicalType::VARCHAR, LogicalType::BIGINT, LogicalType::BOOLEAN},
-	                       LogicalType::BIGINT,
-	                       NextValFunction<SetSequenceValueOperator, true>, nullptr, nullptr);
+	                       LogicalType::BIGINT, NextValFunction<SetSequenceValueOperator, true>, nullptr, nullptr);
 	set_val.SetBindCallback(NextValBind);
 	set_val.SetSerializeCallback(Serialize);
 	set_val.SetDeserializeCallback(Deserialize);
