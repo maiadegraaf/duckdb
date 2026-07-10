@@ -20,14 +20,20 @@ namespace duckdb {
 namespace {
 
 struct CurrentSequenceValueOperator {
-	static int64_t Operation(DuckTransaction &, SequenceCatalogEntry &seq) {
+	static int64_t Operation(DuckTransaction &, SequenceCatalogEntry &seq, const int64_t, const bool) {
 		return seq.CurrentValue();
 	}
 };
 
 struct NextSequenceValueOperator {
-	static int64_t Operation(DuckTransaction &transaction, SequenceCatalogEntry &seq) {
+	static int64_t Operation(DuckTransaction &transaction, SequenceCatalogEntry &seq, const int64_t, const bool) {
 		return seq.NextValue(transaction);
+	}
+};
+
+struct SetSequenceValueOperator {
+	static int64_t Operation(DuckTransaction &, SequenceCatalogEntry &seq, const int64_t value, const bool is_called) {
+		return seq.SetValue(value, is_called);
 	}
 };
 
@@ -70,7 +76,7 @@ unique_ptr<FunctionLocalState> NextValLocalFunction(ExpressionState &state, cons
 	return make_uniq<NextValLocalState>(transaction, sequence);
 }
 
-template <class OP>
+template<class OP, bool is_set_val>
 void NextValFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &func_expr = state.expr.Cast<BoundFunctionExpression>();
 	if (!func_expr.bind_info) {
@@ -86,7 +92,13 @@ void NextValFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto result_data = FlatVector::Writer<int64_t>(result, args.size());
 	for (idx_t i = 0; i < args.size(); i++) {
 		// get the next value from the sequence
-		result_data[i] = OP::Operation(lstate.transaction, lstate.sequence);
+		if (is_set_val) {
+			auto val = args.data[1].GetValue(i);
+
+			auto is_called = args.data[2].GetValue(i);
+		}
+
+		result_data[i] = OP::Operation(lstate.transaction, lstate.sequence, 0, false);
 	}
 }
 
@@ -140,7 +152,7 @@ void NextValModifiedDatabases(ClientContext &context, FunctionModifiedDatabasesI
 
 ScalarFunction NextvalFun::GetFunction() {
 	ScalarFunction next_val("nextval", {LogicalType::VARCHAR}, LogicalType::BIGINT,
-	                        NextValFunction<NextSequenceValueOperator>, nullptr, nullptr);
+	                        NextValFunction<NextSequenceValueOperator, false>, nullptr, nullptr);
 	next_val.SetBindCallback(NextValBind);
 	next_val.SetSerializeCallback(Serialize);
 	next_val.SetDeserializeCallback(Deserialize);
@@ -153,7 +165,7 @@ ScalarFunction NextvalFun::GetFunction() {
 
 ScalarFunction CurrvalFun::GetFunction() {
 	ScalarFunction curr_val("currval", {LogicalType::VARCHAR}, LogicalType::BIGINT,
-	                        NextValFunction<CurrentSequenceValueOperator>, nullptr, nullptr);
+	                        NextValFunction<CurrentSequenceValueOperator, false>, nullptr, nullptr);
 	curr_val.SetBindCallback(NextValBind);
 	curr_val.SetSerializeCallback(Serialize);
 	curr_val.SetDeserializeCallback(Deserialize);
@@ -163,4 +175,17 @@ ScalarFunction CurrvalFun::GetFunction() {
 	return curr_val;
 }
 
+ScalarFunction SetvalFun::GetFunction() {
+	ScalarFunction set_val("setval", {LogicalType::VARCHAR, LogicalType::BIGINT, LogicalType::BOOLEAN},
+	                       LogicalType::BIGINT,
+	                       NextValFunction<SetSequenceValueOperator, true>, nullptr, nullptr);
+	set_val.SetBindCallback(NextValBind);
+	set_val.SetSerializeCallback(Serialize);
+	set_val.SetDeserializeCallback(Deserialize);
+	set_val.SetModifiedDatabasesCallback(NextValModifiedDatabases);
+	set_val.SetInitStateCallback(NextValLocalFunction);
+	set_val.SetVolatile();
+	set_val.SetFallible();
+	return set_val;
+}
 } // namespace duckdb

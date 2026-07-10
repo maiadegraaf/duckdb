@@ -81,8 +81,14 @@ int64_t SequenceCatalogEntry::NextValue(DuckTransaction &transaction) {
 	return result;
 }
 
-int64_t SequenceCatalogEntry::SetValue(int64_t value) {
-	int64_t result;
+int64_t SequenceCatalogEntry::SetValue(int64_t value, bool is_called) {
+	lock_guard<mutex> seqlock(lock);
+
+	data.counter = value;
+	if (is_called) {
+	}
+
+	return value;
 }
 
 void SequenceCatalogEntry::ReplayValue(uint64_t v_usage_count, int64_t v_counter) {

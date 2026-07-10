@@ -62,7 +62,7 @@ public:
 	int64_t CurrentValue();
 	int64_t NextValue(DuckTransaction &transaction);
 
-	int64_t SetValue(int64_t value);
+	int64_t SetValue(int64_t value, bool is_called);
 
 	void ReplayValue(uint64_t usage_count, int64_t counter);
 
