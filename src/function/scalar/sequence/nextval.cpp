@@ -76,7 +76,7 @@ unique_ptr<FunctionLocalState> NextValLocalFunction(ExpressionState &state, cons
 	return make_uniq<NextValLocalState>(transaction, sequence);
 }
 
-template<class OP, bool is_set_val>
+template <class OP, bool is_set_val>
 void NextValFunction(DataChunk &args, ExpressionState &state, Vector &result) {
 	auto &func_expr = state.expr.Cast<BoundFunctionExpression>();
 	if (!func_expr.bind_info) {
