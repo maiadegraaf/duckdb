@@ -168,6 +168,92 @@ statement ok
 DROP SEQUENCE myseq;
 
 #
+# INCREMENT BY
+#
+
+statement ok
+CREATE SEQUENCE myseq INCREMENT BY 2;
+
+query I
+SELECT setval('myseq', 3, false);
+----
+3
+
+query I
+SELECT nextval('myseq');
+----
+3
+
+query I
+SELECT nextval('myseq');
+----
+5
+
+query I
+SELECT nextval('myseq');
+----
+7
+
+statement ok
+DROP SEQUENCE myseq;
+
+# MAXVALUE
+
+statement ok
+CREATE SEQUENCE myseq MAXVALUE 20;
+
+query I
+SELECT setval('myseq', 20, true);
+----
+20
+
+statement error
+SELECT nextval('myseq');
+----
+<REGEX>:.*Sequence Error.*reached maximum value of sequence.*
+
+statement ok
+DROP SEQUENCE myseq;
+
+statement ok
+CREATE SEQUENCE myseq MAXVALUE 20;
+
+query I
+SELECT setval('myseq', 20, false);
+----
+20
+
+query I
+SELECT nextval('myseq');
+----
+20
+
+statement error
+SELECT nextval('myseq');
+----
+<REGEX>:.*Sequence Error.*reached maximum value of sequence.*
+
+statement ok
+DROP SEQUENCE myseq;
+
+# setval at exactly MAXVALUE with CYCLE: the following nextval wraps to MINVALUE
+statement ok
+CREATE SEQUENCE myseq MAXVALUE 20 CYCLE;
+
+query I
+SELECT setval('myseq', 20, true);
+----
+20
+
+query I
+SELECT nextval('myseq');
+----
+1
+
+statement ok
+DROP SEQUENCE myseq;
+
+#
 # invalid parameters
 #
 
