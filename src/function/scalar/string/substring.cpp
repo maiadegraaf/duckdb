@@ -51,41 +51,59 @@ static string_t SubstringSlice(Vector &result, const char *input_data, int64_t o
 	return result_string;
 }
 
-// compute start and end characters from the given input size and offset/length
-static bool SubstringStartEnd(int64_t input_size, int64_t offset, int64_t length, int64_t &start, int64_t &end) {
+// compute the (unclamped) start/end character-index window for the given offset/length, without any
+// knowledge of the input size. For offset > 0 the window is expressed as absolute 0-based indices from
+// the front of the string. For offset < 0 the window is expressed as 0-based indices *relative to the
+// end of the string* (i.e. the actual front index is input_size + start / input_size + end) - this lets
+// callers that don't know the input size up front (e.g. a codepoint count, which requires a full scan to
+// determine) still compute the window, by working with distances from the back instead.
+// This is the one piece of arithmetic shared by the ASCII, unicode and grapheme substring paths - keeping
+// it in a single place avoids the different paths independently (and inconsistently) reinventing it.
+// Returns false if the window is unconditionally empty, independent of the input size.
+static bool SubstringWindow(int64_t offset, int64_t length, int64_t &start, int64_t &end) {
 	if (length == 0) {
 		return false;
 	}
-	// compute start/end in unclamped space first: clamping offset to the string bounds too early loses
-	// track of how far out of range the requested window actually is (e.g. a huge negative offset combined
-	// with a small positive length should not "snap" back into the string)
-	int64_t unclamped_start;
 	if (offset > 0) {
 		// positive offset: scan from start
-		unclamped_start = offset - 1;
+		start = offset - 1;
 	} else if (offset < 0) {
 		// negative offset: scan from end (i.e. start = end + offset)
-		unclamped_start = input_size + offset;
+		start = offset;
 	} else {
 		// offset = 0: special case, we start 1 character BEHIND the first character
-		unclamped_start = 0;
+		start = 0;
 		length--;
 		if (length <= 0) {
 			return false;
 		}
 	}
-	int64_t unclamped_end;
 	if (length > 0) {
 		// positive length: go forward (i.e. end = start + offset)
-		unclamped_end = unclamped_start + length;
+		end = start + length;
 	} else {
 		// negative length: go backwards (i.e. end = start, start = start + length)
-		unclamped_end = unclamped_start;
-		unclamped_start += length;
+		end = start;
+		start += length;
 	}
-	// now clamp both start and end to the actual string bounds
-	start = MaxValue<int64_t>(0, MinValue<int64_t>(input_size, unclamped_start));
-	end = MaxValue<int64_t>(0, MinValue<int64_t>(input_size, unclamped_end));
+	return true;
+}
+
+// compute start and end characters from the given input size and offset/length
+static bool SubstringStartEnd(int64_t input_size, int64_t offset, int64_t length, int64_t &start, int64_t &end) {
+	if (!SubstringWindow(offset, length, start, end)) {
+		return false;
+	}
+	if (offset < 0) {
+		// the window is relative to the end of the string: shift it to absolute front indices
+		start += input_size;
+		end += input_size;
+	}
+	// clamp start/end in unclamped space first: clamping offset to the string bounds too early loses
+	// track of how far out of range the requested window actually is (e.g. a huge negative offset combined
+	// with a small positive length should not "snap" back into the string)
+	start = MaxValue<int64_t>(0, MinValue<int64_t>(input_size, start));
+	end = MaxValue<int64_t>(0, MinValue<int64_t>(input_size, end));
 	if (start >= end) {
 		return false;
 	}
@@ -122,19 +140,16 @@ string_t SubstringUnicode(Vector &result, string_t input, int64_t offset, int64_
 		end_pos = DConstants::INVALID_INDEX;
 
 		// negative offset: scan backwards
-		int64_t start, end;
-
-		// we express start and end as unicode codepoints from the back
-		offset--;
-		if (length < 0) {
-			// negative length
-			start = -offset - length;
-			end = -offset;
-		} else {
-			// positive length
-			start = -offset;
-			end = -offset - length;
+		// get the same offset/length window used by the ASCII fast path (SubstringStartEnd), and convert
+		// it from "index relative to the end of the string" to "codepoint distance from the back" (1-based,
+		// matching current_character below) - this way we don't need a full pre-pass to count codepoints
+		// just to know where the end of the string is.
+		int64_t window_start, window_end;
+		if (!SubstringWindow(offset, length, window_start, window_end)) {
+			return SubstringEmptyString(result);
 		}
+		int64_t start = -window_start + 1;
+		int64_t end = -window_end + 1;
 		if (end <= 0) {
 			end_pos = input_size;
 		}
@@ -165,19 +180,15 @@ string_t SubstringUnicode(Vector &result, string_t input, int64_t offset, int64_
 		end_pos = input_size;
 
 		// positive offset: scan forwards
+		// get the same offset/length window used by the ASCII fast path (SubstringStartEnd); for a
+		// positive offset it's already expressed as absolute codepoint indices from the front, we just
+		// need to clamp the start (the end is intentionally left unclamped so the scan below runs to the
+		// end of the string if it's never reached).
 		int64_t start, end;
-
-		// we express start and end as unicode codepoints from the front
-		offset--;
-		if (length < 0) {
-			// negative length
-			start = MaxValue<int64_t>(0, offset + length);
-			end = offset;
-		} else {
-			// positive length
-			start = MaxValue<int64_t>(0, offset);
-			end = offset + length;
+		if (!SubstringWindow(offset, length, start, end)) {
+			return SubstringEmptyString(result);
 		}
+		start = MaxValue<int64_t>(0, start);
 
 		int64_t current_character = 0;
 		for (idx_t i = 0; i < input_size; i++) {
