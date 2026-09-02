@@ -6,9 +6,11 @@
 
 namespace duckdb {
 
-BoundReferenceExpression::BoundReferenceExpression(Identifier alias, LogicalType type, idx_t index)
-    : Expression(ExpressionType::BOUND_REF, ExpressionClass::BOUND_REF, std::move(type)), index(index) {
-	this->alias = std::move(alias);
+BoundReferenceExpression::BoundReferenceExpression(Identifier alias, LogicalType type, idx_t index,
+                                                   Identifier table_alias_p)
+    : Expression(ExpressionType::BOUND_REF, ExpressionClass::BOUND_REF, std::move(type)), index(index),
+      table_alias(std::move(table_alias_p)) {
+    this->alias = std::move(alias);
 }
 BoundReferenceExpression::BoundReferenceExpression(LogicalType type, storage_t index)
     : BoundReferenceExpression(Identifier(), std::move(type), index) {
@@ -21,7 +23,10 @@ string BoundReferenceExpression::ToString() const {
 	}
 #endif
 	if (!alias.empty()) {
-		return alias.GetIdentifierName();
+        if (DBConfigOptions::detailed_identifiers && !table_alias.empty()) {
+            return table_alias.GetIdentifierName() + "." + alias.GetIdentifierName();
+        }
+        return alias.GetIdentifierName();
 	}
 	return "#" + to_string(index);
 }
@@ -39,7 +44,7 @@ hash_t BoundReferenceExpression::Hash() const {
 }
 
 unique_ptr<Expression> BoundReferenceExpression::Copy() const {
-	return make_uniq<BoundReferenceExpression>(alias, return_type, index);
+    return make_uniq < BoundReferenceExpression > (alias, return_type, index, table_alias);
 }
 
 } // namespace duckdb

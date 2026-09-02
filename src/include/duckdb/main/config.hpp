@@ -159,6 +159,10 @@ struct DBConfigOptions {
 	optional_idx write_buffer_row_group_memory_limit;
 	//! Whether to print bindings when printing the plan (debug mode only)
 	static bool debug_print_bindings; // NOLINT: debug setting
+	//! Whether to qualify column names with their originating table alias (e.g. "t1.b") in EXPLAIN/profiling output.
+	//! Process-wide rather than per-connection: Expression::ToString() has no ClientContext to read a local setting
+	//! from, so this can't use the regular per-connection settings storage the way most SET options do.
+	static bool detailed_identifiers; // NOLINT: process-wide setting, see comment above
 	//! The global verification mode
 	static DebugVerificationMode global_verification_mode; // NOLINT: debug setting
 

@@ -213,6 +213,22 @@ Value AllowPersistentSecretsSetting::GetSetting(const ClientContext &context) {
 }
 
 //===----------------------------------------------------------------------===//
+// Detailed Identifiers
+//===----------------------------------------------------------------------===//
+void DetailedIdentifiersSetting::SetGlobal(DatabaseInstance *db, DBConfig &config, const Value &input) {
+	auto value = input.DefaultCastAs(LogicalType::BOOLEAN);
+	DBConfigOptions::detailed_identifiers = value.GetValue<bool>();
+}
+
+void DetailedIdentifiersSetting::ResetGlobal(DatabaseInstance *db, DBConfig &config) {
+	DBConfigOptions::detailed_identifiers = false;
+}
+
+Value DetailedIdentifiersSetting::GetSetting(const ClientContext &context) {
+	return Value::BOOLEAN(DBConfigOptions::detailed_identifiers);
+}
+
+//===----------------------------------------------------------------------===//
 // Allow Unredacted Secrets
 //===----------------------------------------------------------------------===//
 void AllowUnredactedSecretsSetting::OnSet(SettingCallbackInfo &info, Value &input) {

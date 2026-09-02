@@ -237,8 +237,8 @@ unique_ptr<Expression> ColumnBindingResolver::VisitReplace(BoundColumnRefExpress
 				// in verification mode
 				return nullptr;
 			}
-			return make_uniq<BoundReferenceExpression>(expr.GetAlias(), expr.GetReturnType(), i);
-		}
+            return make_uniq<BoundReferenceExpression>(expr.GetAlias(), expr.GetReturnType(), i, expr.TableAlias());
+        }
 	}
 	// LCOV_EXCL_START
 	// could not bind the column reference, this should never happen and indicates a bug in the code
