@@ -56,32 +56,39 @@ static bool SubstringStartEnd(int64_t input_size, int64_t offset, int64_t length
 	if (length == 0) {
 		return false;
 	}
+	// compute start/end in unclamped space first: clamping offset to the string bounds too early loses
+	// track of how far out of range the requested window actually is (e.g. a huge negative offset combined
+	// with a small positive length should not "snap" back into the string)
+	int64_t unclamped_start;
 	if (offset > 0) {
 		// positive offset: scan from start
-		start = MinValue<int64_t>(input_size, offset - 1);
+		unclamped_start = offset - 1;
 	} else if (offset < 0) {
 		// negative offset: scan from end (i.e. start = end + offset)
-		start = MaxValue<int64_t>(input_size + offset, 0);
+		unclamped_start = input_size + offset;
 	} else {
 		// offset = 0: special case, we start 1 character BEHIND the first character
-		start = 0;
+		unclamped_start = 0;
 		length--;
 		if (length <= 0) {
 			return false;
 		}
 	}
+	int64_t unclamped_end;
 	if (length > 0) {
 		// positive length: go forward (i.e. end = start + offset)
-		end = MinValue<int64_t>(input_size, start + length);
+		unclamped_end = unclamped_start + length;
 	} else {
 		// negative length: go backwards (i.e. end = start, start = start + length)
-		end = start;
-		start = MaxValue<int64_t>(0, start + length);
+		unclamped_end = unclamped_start;
+		unclamped_start += length;
 	}
-	if (start == end) {
+	// now clamp both start and end to the actual string bounds
+	start = MaxValue<int64_t>(0, MinValue<int64_t>(input_size, unclamped_start));
+	end = MaxValue<int64_t>(0, MinValue<int64_t>(input_size, unclamped_end));
+	if (start >= end) {
 		return false;
 	}
-	D_ASSERT(start < end);
 	return true;
 }
 
