@@ -866,9 +866,9 @@ struct DetailedIdentifiersSetting {
 	using RETURN_TYPE = bool;
 	static constexpr const char *Name = "detailed_identifiers";
 	static constexpr const char *Description =
-			"Qualify column names with their originating table alias (e.g. t1.b) in EXPLAIN and profiling output, to "
-			"disambiguate identically-named columns from different tables. Applies process-wide to all connections, not "
-			"just the current session";
+	    "Qualify column names with their originating table alias (e.g. t1.b) in EXPLAIN and profiling output, to "
+	    "disambiguate identically-named columns from different tables. Applies process-wide to all connections, not "
+	    "just the current session";
 	static constexpr const char *InputType = "BOOLEAN";
 
 	static void SetGlobal(DatabaseInstance *db, DBConfig &config, const Value &parameter);

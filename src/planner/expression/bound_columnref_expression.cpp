@@ -9,7 +9,7 @@ BoundColumnRefExpression::BoundColumnRefExpression(Identifier alias_p, LogicalTy
                                                    idx_t depth, Identifier table_alias_p)
     : Expression(ExpressionType::BOUND_COLUMN_REF, ExpressionClass::BOUND_COLUMN_REF, std::move(type)),
       binding(binding), depth(depth), table_alias(std::move(table_alias_p)) {
-    this->alias = std::move(alias_p);
+	this->alias = std::move(alias_p);
 }
 
 BoundColumnRefExpression::BoundColumnRefExpression(LogicalType type, ColumnBinding binding, idx_t depth)
@@ -17,7 +17,7 @@ BoundColumnRefExpression::BoundColumnRefExpression(LogicalType type, ColumnBindi
 }
 
 unique_ptr<Expression> BoundColumnRefExpression::Copy() const {
-    return make_uniq < BoundColumnRefExpression > (alias, return_type, binding, depth, table_alias);
+	return make_uniq<BoundColumnRefExpression>(alias, return_type, binding, depth, table_alias);
 }
 
 hash_t BoundColumnRefExpression::Hash() const {
@@ -51,10 +51,10 @@ string BoundColumnRefExpression::ToString() const {
 	}
 #endif
 	if (!alias.empty()) {
-        if (DBConfigOptions::detailed_identifiers && !table_alias.empty()) {
-            return table_alias.GetIdentifierName() + "." + alias.GetIdentifierName();
-        }
-        return alias.GetIdentifierName();
+		if (DBConfigOptions::detailed_identifiers && !table_alias.empty()) {
+			return table_alias.GetIdentifierName() + "." + alias.GetIdentifierName();
+		}
+		return alias.GetIdentifierName();
 	}
 	return binding.ToString();
 }

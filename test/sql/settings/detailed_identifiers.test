@@ -1,0 +1,51 @@
+# name: test/sql/settings/detailed_identifiers.test
+# description: Test detailed_identifiers setting for qualifying ambiguous column names in EXPLAIN/profiling output
+# group: [settings]
+
+statement ok
+CREATE TABLE t1(a INTEGER, b VARCHAR);
+
+statement ok
+CREATE TABLE t2(a INTEGER, b VARCHAR);
+
+statement ok
+INSERT INTO t1 VALUES (1, 'xx'), (5, 'yy');
+
+statement ok
+INSERT INTO t2 VALUES (1, 'xx'), (5, 'yy');
+
+# the setting defaults to off
+query I
+SELECT current_setting('detailed_identifiers');
+----
+false
+
+# by default, columns are not qualified with their table alias, even when ambiguous
+query II
+EXPLAIN ANALYZE SELECT * FROM t1, t2 WHERE t1.a + t2.a > 3;
+----
+analyzed_plan	<REGEX>:.*\(a \+ a\) > 3.*
+
+statement ok
+SET detailed_identifiers=true;
+
+# with the setting enabled, ambiguous columns are qualified with their originating table alias
+query II
+EXPLAIN ANALYZE SELECT * FROM t1, t2 WHERE t1.a + t2.a > 3;
+----
+analyzed_plan	<REGEX>:.*\(t1\.a \+ t2\.a\) > 3.*
+
+# qualification also shows up in a nested-loop join's Condition, the original motivating case
+query II
+EXPLAIN ANALYZE SELECT t1.a, t2.b FROM t1, t2 WHERE concat(left(t2.b,1), left(t1.b,1)) = 'xy';
+----
+analyzed_plan	<REGEX>:.*t2\.b.*t1\.b.*
+
+statement ok
+RESET detailed_identifiers;
+
+# after RESET, behavior goes back to the default (unqualified)
+query II
+EXPLAIN ANALYZE SELECT * FROM t1, t2 WHERE t1.a + t2.a > 3;
+----
+analyzed_plan	<REGEX>:.*\(a \+ a\) > 3.*

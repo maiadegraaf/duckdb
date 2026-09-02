@@ -18,9 +18,9 @@ public:
 	static constexpr const ExpressionClass TYPE = ExpressionClass::BOUND_REF;
 
 public:
-    BoundReferenceExpression(Identifier alias, LogicalType type, idx_t index, Identifier table_alias = Identifier());
+	BoundReferenceExpression(Identifier alias, LogicalType type, idx_t index, Identifier table_alias = Identifier());
 
-    BoundReferenceExpression(LogicalType type, storage_t index);
+	BoundReferenceExpression(LogicalType type, storage_t index);
 
 public:
 	idx_t Index() const {
@@ -30,13 +30,13 @@ public:
 		return index;
 	}
 
-    //! The alias of the binding this column was resolved from (e.g. "t1"), if known.
+	//! The alias of the binding this column was resolved from (e.g. "t1"), if known.
 	//! Used to disambiguate identically-named columns from different tables in profiling/EXPLAIN output.
-    const Identifier &TableAlias() const {
-        return table_alias;
-    }
+	const Identifier &TableAlias() const {
+		return table_alias;
+	}
 
-    bool IsScalar() const override {
+	bool IsScalar() const override {
 		return false;
 	}
 	bool IsFoldable() const override {
@@ -56,7 +56,7 @@ public:
 private:
 	//! Index used to access data in the chunks
 	storage_t index;
-    //! The alias of the binding this column was resolved from, if known (not serialized).
-    Identifier table_alias;
+	//! The alias of the binding this column was resolved from, if known (not serialized).
+	Identifier table_alias;
 };
 } // namespace duckdb

@@ -23,8 +23,8 @@ public:
 public:
 	BoundColumnRefExpression(LogicalType type, ColumnBinding binding, idx_t depth = 0);
 
-    BoundColumnRefExpression(Identifier alias, LogicalType type, ColumnBinding binding, idx_t depth = 0,
-                             Identifier table_alias = Identifier());
+	BoundColumnRefExpression(Identifier alias, LogicalType type, ColumnBinding binding, idx_t depth = 0,
+	                         Identifier table_alias = Identifier());
 
 public:
 	bool IsScalar() const override {
@@ -47,13 +47,13 @@ public:
 		return depth;
 	}
 
-    //! The alias of the binding this column was resolved from (e.g. "t1"), if known.
+	//! The alias of the binding this column was resolved from (e.g. "t1"), if known.
 	//! Used to disambiguate identically-named columns from different tables in profiling/EXPLAIN output.
-    const Identifier &TableAlias() const {
-        return table_alias;
-    }
+	const Identifier &TableAlias() const {
+		return table_alias;
+	}
 
-    string ToString() const override;
+	string ToString() const override;
 	Identifier GetName() const override;
 
 	bool Equals(const BaseExpression &other) const override;
@@ -70,7 +70,7 @@ private:
 	//! The subquery depth (i.e. depth 0 = current query, depth 1 = parent query, depth 2 = parent of parent, etc...).
 	//! This is only non-zero for correlated expressions inside subqueries.
 	idx_t depth;
-    //! The alias of the binding this column was resolved from, if known (not serialized).
-    Identifier table_alias;
+	//! The alias of the binding this column was resolved from, if known (not serialized).
+	Identifier table_alias;
 };
 } // namespace duckdb

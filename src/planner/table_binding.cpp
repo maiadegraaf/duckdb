@@ -130,8 +130,8 @@ BindResult Binding::Bind(ColumnRefExpression &colref, idx_t depth) {
 	binding.column_index = ProjectionIndex(column_index);
 	LogicalType sql_type = types[column_index];
 	SetBoundColumnAlias(colref);
-    return BindResult(
-        make_uniq<BoundColumnRefExpression>(Identifier(colref.GetName()), sql_type, binding, depth, GetAlias()));
+	return BindResult(
+	    make_uniq<BoundColumnRefExpression>(Identifier(colref.GetName()), sql_type, binding, depth, GetAlias()));
 }
 
 optional_ptr<StandardEntry> Binding::GetStandardEntry() {
@@ -311,8 +311,8 @@ BindResult TableBinding::Bind(ColumnRefExpression &colref, idx_t depth) {
 		SetBoundColumnAlias(colref);
 	}
 	ColumnBinding binding = GetColumnBinding(column_index);
-    return BindResult(
-        make_uniq<BoundColumnRefExpression>(Identifier(colref.GetName()), col_type, binding, depth, GetAlias()));
+	return BindResult(
+	    make_uniq<BoundColumnRefExpression>(Identifier(colref.GetName()), col_type, binding, depth, GetAlias()));
 }
 
 optional_ptr<StandardEntry> TableBinding::GetStandardEntry() {
