@@ -37,13 +37,13 @@ bool SubstringInSupportedRange(int64_t offset, int64_t length) {
 	       length <= SUPPORTED_UPPER_BOUND;
 }
 
-static string_t SubstringEmptyString(Vector &result) {
+static string_t EmptyString(Vector &result) {
 	auto result_string = StringVector::EmptyString(result, 0);
 	result_string.Finalize();
 	return result_string;
 }
 
-static string_t SubstringSlice(Vector &result, const char *input_data, int64_t offset, int64_t length) {
+static string_t Slice(Vector &result, const char *input_data, int64_t offset, int64_t length) {
 	auto result_string = StringVector::EmptyString(result, UnsafeNumericCast<idx_t>(length));
 	auto result_data = result_string.GetDataWriteable();
 	memcpy(result_data, input_data + offset, UnsafeNumericCast<size_t>(length));
@@ -51,8 +51,16 @@ static string_t SubstringSlice(Vector &result, const char *input_data, int64_t o
 	return result_string;
 }
 
-// compute start and end characters from the given input size and offset/length
-static bool SubstringStartEnd(int64_t offset, int64_t length, int64_t &start, int64_t &end) {
+// Compute the (unclamped) start/end character-index window for the given offset/length, without any
+// knowledge of the input size. For offset > 0 the window is absolute front indices. For offset < 0 it's
+// expressed relative to the end of the string instead (front index = input_size + start/end) - this is
+// what lets ASCIIBounds add the size in afterwards, and lets the unicode backward scan work without a
+// pre-pass to count codepoints. Worked example: offset = -2 on a 5-character string means the window
+// starts at absolute index 3 (= 5 + -2), i.e. the second-to-last character.
+// Both prior bugs in this file (a fast-path clamping regression, and an external contributor's fix for
+// the same thing) came from re-deriving this arithmetic by hand and getting the negative-offset case
+// wrong - treat this convention as load-bearing, not incidental.
+static bool StartEnd(int64_t offset, int64_t length, int64_t &start, int64_t &end) {
 	if (length == 0) {
 		return false;
 	}
@@ -81,8 +89,8 @@ static bool SubstringStartEnd(int64_t offset, int64_t length, int64_t &start, in
 	return true;
 }
 
-static bool SubstringASCIIBounds(int64_t input_size, int64_t offset, int64_t length, int64_t &start, int64_t &end) {
-	if (!SubstringStartEnd(offset, length, start, end)) {
+static bool ASCIIBounds(int64_t input_size, int64_t offset, int64_t length, int64_t &start, int64_t &end) {
+	if (!StartEnd(offset, length, start, end)) {
 		return false;
 	}
 	// Clamp start and end to string bounds
@@ -103,10 +111,70 @@ string_t SubstringASCII(Vector &result, string_t input, int64_t offset, int64_t 
 	AssertInSupportedRange(input_size, offset, length);
 
 	int64_t start, end;
-	if (!SubstringASCIIBounds(UnsafeNumericCast<int64_t>(input_size), offset, length, start, end)) {
-		return SubstringEmptyString(result);
+	if (!ASCIIBounds(UnsafeNumericCast<int64_t>(input_size), offset, length, start, end)) {
+		return EmptyString(result);
 	}
-	return SubstringSlice(result, input_data, start, UnsafeNumericCast<int64_t>(end - start));
+	return Slice(result, input_data, start, UnsafeNumericCast<int64_t>(end - start));
+}
+
+// Scans forward through unit start-positions (as produced by visit_units) looking for the codepoint
+// indices `start`/`end`. visit_units must call its argument (in order) with each unit's byte offset,
+// until told to stop by a `true` return. Templated so each caller gets its own fully-inlined
+// specialization - no virtual dispatch, no std::function, no heap allocation.
+// Used by both SubstringUnicode's forward (positive-offset) scan and SubstringGrapheme's only scan:
+// those two loops were structurally identical (same init, same check-then-increment order, same early
+// break - only what's being iterated differed), so this replaces two copies with one.
+// Returns whether `start` was reached (start_pos set); end_pos defaults to end_pos_if_not_found if
+// `end` is never reached, matching both callers' existing contract.
+template <class VisitUnits>
+static bool ScanForwardForBoundaries(int64_t start, int64_t end, idx_t end_pos_if_not_found, idx_t &start_pos,
+                                     idx_t &end_pos, VisitUnits &&visit_units) {
+	start_pos = DConstants::INVALID_INDEX;
+	end_pos = end_pos_if_not_found;
+	int64_t current_character = 0;
+	visit_units([&](idx_t unit_start) {
+		if (current_character == start) {
+			start_pos = unit_start;
+		} else if (current_character == end) {
+			end_pos = unit_start;
+			return true; // stop
+		}
+		current_character++;
+		return false;
+	});
+	return start_pos != DConstants::INVALID_INDEX;
+}
+
+// Scans backward from the end of input_data. start/end are 1-based codepoint distances from the back
+// (see StartEnd's doc comment for the offset<0 convention this matches). This is the only caller of a
+// backward scan in the file - grapheme clusters can't be walked backward safely, since segmentation
+// depends on look-ahead (ZWJ sequences, regional indicators, etc.) - so unlike the forward scan above,
+// there's no second caller to unify this with.
+static void ScanBackwardForBoundaries(const char *input_data, idx_t input_size, int64_t start, int64_t end,
+                                      idx_t &start_pos, idx_t &end_pos) {
+	start_pos = 0;
+	end_pos = DConstants::INVALID_INDEX;
+	if (end <= 0) {
+		end_pos = input_size;
+	}
+	int64_t current_character = 0;
+	for (idx_t i = input_size; i > 0; i--) {
+		if (IsCharacter(input_data[i - 1])) {
+			current_character++;
+			if (current_character == start) {
+				start_pos = i;
+				break;
+			} else if (current_character == end) {
+				end_pos = i;
+			}
+		}
+	}
+	while (start_pos < input_size && !IsCharacter(input_data[start_pos])) {
+		start_pos++;
+	}
+	while (end_pos < input_size && !IsCharacter(input_data[end_pos])) {
+		end_pos++;
+	}
 }
 
 string_t SubstringUnicode(Vector &result, string_t input, int64_t offset, int64_t length) {
@@ -116,75 +184,42 @@ string_t SubstringUnicode(Vector &result, string_t input, int64_t offset, int64_
 	AssertInSupportedRange(input_size, offset, length);
 
 	if (length == 0) {
-		return SubstringEmptyString(result);
+		return EmptyString(result);
 	}
-	// first figure out which direction we need to scan
-	idx_t start_pos;
-	idx_t end_pos;
-	// negative offset: scan backwards
 	int64_t start, end;
-	if (!SubstringStartEnd(offset, length, start, end)) {
-		return SubstringEmptyString(result);
+	if (!StartEnd(offset, length, start, end)) {
+		return EmptyString(result);
 	}
-	if (offset < 0) {
-		start_pos = 0;
-		end_pos = DConstants::INVALID_INDEX;
 
+	idx_t start_pos, end_pos;
+	if (offset < 0) {
 		// we express start and end as unicode codepoints from the back
 		start = -start + 1;
 		end = -end + 1;
-		if (end <= 0) {
-			end_pos = input_size;
-		}
-		int64_t current_character = 0;
-		for (idx_t i = input_size; i > 0; i--) {
-			if (IsCharacter(input_data[i - 1])) {
-				current_character++;
-				if (current_character == start) {
-					start_pos = i;
-					break;
-				} else if (current_character == end) {
-					end_pos = i;
-				}
-			}
-		}
-		while (start_pos < input_size && !IsCharacter(input_data[start_pos])) {
-			start_pos++;
-		}
-		while (end_pos < input_size && !IsCharacter(input_data[end_pos])) {
-			end_pos++;
-		}
-
+		ScanBackwardForBoundaries(input_data, input_size, start, end, start_pos, end_pos);
 		if (end_pos == DConstants::INVALID_INDEX) {
-			return SubstringEmptyString(result);
+			return EmptyString(result);
 		}
 	} else {
-		start_pos = DConstants::INVALID_INDEX;
-		end_pos = input_size;
-
 		// we express start and end as unicode codepoints from the front
 		start = MaxValue<int64_t>(0, start);
-
-		int64_t current_character = 0;
-		for (idx_t i = 0; i < input_size; i++) {
-			if (IsCharacter(input_data[i])) {
-				if (current_character == start) {
-					start_pos = i;
-				} else if (current_character == end) {
-					end_pos = i;
-					break;
+		ScanForwardForBoundaries(start, end, input_size, start_pos, end_pos, [&](auto &&visit) {
+			for (idx_t i = 0; i < input_size; i++) {
+				if (IsCharacter(input_data[i])) {
+					if (visit(i)) {
+						return;
+					}
 				}
-				current_character++;
 			}
-		}
+		});
 		if (start_pos == DConstants::INVALID_INDEX || end == 0 || end <= start) {
-			return SubstringEmptyString(result);
+			return EmptyString(result);
 		}
 	}
 	D_ASSERT(end_pos >= start_pos);
 	// after we have found these, we can slice the substring
-	return SubstringSlice(result, input_data, UnsafeNumericCast<int64_t>(start_pos),
-	                      UnsafeNumericCast<int64_t>(end_pos - start_pos));
+	return Slice(result, input_data, UnsafeNumericCast<int64_t>(start_pos),
+	             UnsafeNumericCast<int64_t>(end_pos - start_pos));
 }
 
 string_t SubstringGrapheme(Vector &result, string_t input, int64_t offset, int64_t length) {
@@ -196,8 +231,8 @@ string_t SubstringGrapheme(Vector &result, string_t input, int64_t offset, int64
 	// we don't know yet if the substring is ascii, but we assume it is (for now)
 	// first get the start and end as if this was an ascii string
 	int64_t start, end;
-	if (!SubstringASCIIBounds(UnsafeNumericCast<int64_t>(input_size), offset, length, start, end)) {
-		return SubstringEmptyString(result);
+	if (!ASCIIBounds(UnsafeNumericCast<int64_t>(input_size), offset, length, start, end)) {
+		return EmptyString(result);
 	}
 
 	// now check if all the characters between 0 and end are ascii characters
@@ -213,37 +248,34 @@ string_t SubstringGrapheme(Vector &result, string_t input, int64_t offset, int64
 	}
 	if (is_ascii) {
 		// all characters are ascii, we can just slice the substring
-		return SubstringSlice(result, input_data, start, end - start);
+		return Slice(result, input_data, start, end - start);
 	}
 	// if the characters are not ascii, we need to scan grapheme clusters
 	// first figure out which direction we need to scan
-	// offset = 0 case is taken care of in SubstringStartEnd
+	// offset = 0 case is taken care of in StartEnd
 	if (offset < 0) {
 		// negative offset, this case is more difficult
 		// we first need to count the number of characters in the string
 		idx_t num_characters = Utf8Proc::GraphemeCount(input_data, input_size);
 		// now call substring start and end again, but with the number of unicode characters this time
-		SubstringASCIIBounds(UnsafeNumericCast<int64_t>(num_characters), offset, length, start, end);
+		ASCIIBounds(UnsafeNumericCast<int64_t>(num_characters), offset, length, start, end);
 	}
 
 	// now scan the graphemes of the string to find the positions of the start and end characters
-	int64_t current_character = 0;
-	idx_t start_pos = DConstants::INVALID_INDEX, end_pos = input_size;
-	for (auto cluster : Utf8Proc::GraphemeClusters(input_data, input_size)) {
-		if (current_character == start) {
-			start_pos = cluster.start;
-		} else if (current_character == end) {
-			end_pos = cluster.start;
-			break;
+	idx_t start_pos, end_pos;
+	ScanForwardForBoundaries(start, end, input_size, start_pos, end_pos, [&](auto &&visit) {
+		for (auto cluster : Utf8Proc::GraphemeClusters(input_data, input_size)) {
+			if (visit(cluster.start)) {
+				return;
+			}
 		}
-		current_character++;
-	}
+	});
 	if (start_pos == DConstants::INVALID_INDEX) {
-		return SubstringEmptyString(result);
+		return EmptyString(result);
 	}
 	// after we have found these, we can slice the substring
-	return SubstringSlice(result, input_data, UnsafeNumericCast<int64_t>(start_pos),
-	                      UnsafeNumericCast<int64_t>(end_pos - start_pos));
+	return Slice(result, input_data, UnsafeNumericCast<int64_t>(start_pos),
+	             UnsafeNumericCast<int64_t>(end_pos - start_pos));
 }
 
 namespace {
