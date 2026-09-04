@@ -4,13 +4,9 @@
 
 using namespace duckdb;
 
-// SubstringASCII, SubstringUnicode and SubstringGrapheme are three independent implementations of the
-// same offset/length -> substring semantics, kept separate for performance (see substring.cpp). On
-// ASCII-only input all three must agree exactly, since bytes, codepoints and grapheme clusters
-// coincide there. This file has had two independent bugs (both in negative-offset handling) where
-// that invariant silently broke - this test sweeps a grid of offset/length pairs, including the exact
-// values that triggered both prior bugs, so any future divergence between the three paths fails CI
-// instead of shipping.
+// SubstringASCII/Unicode/Grapheme must agree exactly on ASCII input (bytes, codepoints and grapheme
+// clusters coincide there). This file has had two independent bugs where that broke silently - sweep
+// offset/length pairs, including the values that triggered them, as a standing regression gate.
 TEST_CASE("substring ASCII/unicode/grapheme paths agree on ASCII input", "[substring]") {
 	// mirrors SUPPORTED_UPPER_BOUND/SUPPORTED_LOWER_BOUND in substring.cpp (not exported, so
 	// duplicated here as literals)
