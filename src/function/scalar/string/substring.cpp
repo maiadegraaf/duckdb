@@ -51,15 +51,9 @@ static string_t Slice(Vector &result, const char *input_data, int64_t offset, in
 	return result_string;
 }
 
-// Compute the (unclamped) start/end character-index window for the given offset/length, without any
-// knowledge of the input size. For offset > 0 the window is absolute front indices. For offset < 0 it's
-// expressed relative to the end of the string instead (front index = input_size + start/end) - this is
-// what lets ASCIIBounds add the size in afterwards, and lets the unicode backward scan work without a
-// pre-pass to count codepoints. Worked example: offset = -2 on a 5-character string means the window
-// starts at absolute index 3 (= 5 + -2), i.e. the second-to-last character.
-// Both prior bugs in this file (a fast-path clamping regression, and an external contributor's fix for
-// the same thing) came from re-deriving this arithmetic by hand and getting the negative-offset case
-// wrong - treat this convention as load-bearing, not incidental.
+// offset < 0: window is relative to the end of the string (front index = input_size + start/end), not
+// absolute - e.g. offset = -2 on a 5-char string starts at index 3. Both prior bugs in this file came
+// from getting exactly this case wrong by hand.
 static bool StartEnd(int64_t offset, int64_t length, int64_t &start, int64_t &end) {
 	if (length == 0) {
 		return false;
@@ -117,15 +111,8 @@ string_t SubstringASCII(Vector &result, string_t input, int64_t offset, int64_t 
 	return Slice(result, input_data, start, UnsafeNumericCast<int64_t>(end - start));
 }
 
-// Scans forward through unit start-positions (as produced by visit_units) looking for the codepoint
-// indices `start`/`end`. visit_units must call its argument (in order) with each unit's byte offset,
-// until told to stop by a `true` return. Templated so each caller gets its own fully-inlined
-// specialization - no virtual dispatch, no std::function, no heap allocation.
-// Used by both SubstringUnicode's forward (positive-offset) scan and SubstringGrapheme's only scan:
-// those two loops were structurally identical (same init, same check-then-increment order, same early
-// break - only what's being iterated differed), so this replaces two copies with one.
-// Returns whether `start` was reached (start_pos set); end_pos defaults to end_pos_if_not_found if
-// `end` is never reached, matching both callers' existing contract.
+// Shared by SubstringUnicode's forward scan and SubstringGrapheme's scan - these were the same loop
+// duplicated. Templated so each call site is fully inlined, no virtual dispatch.
 template <class VisitUnits>
 static bool ScanForwardForBoundaries(int64_t start, int64_t end, idx_t end_pos_if_not_found, idx_t &start_pos,
                                      idx_t &end_pos, VisitUnits &&visit_units) {
@@ -145,11 +132,8 @@ static bool ScanForwardForBoundaries(int64_t start, int64_t end, idx_t end_pos_i
 	return start_pos != DConstants::INVALID_INDEX;
 }
 
-// Scans backward from the end of input_data. start/end are 1-based codepoint distances from the back
-// (see StartEnd's doc comment for the offset<0 convention this matches). This is the only caller of a
-// backward scan in the file - grapheme clusters can't be walked backward safely, since segmentation
-// depends on look-ahead (ZWJ sequences, regional indicators, etc.) - so unlike the forward scan above,
-// there's no second caller to unify this with.
+// start/end are 1-based codepoint distances from the back. Grapheme clusters can't be walked backward
+// safely (segmentation needs look-ahead), so unlike the forward scan there's no second caller to share this with.
 static void ScanBackwardForBoundaries(const char *input_data, idx_t input_size, int64_t start, int64_t end,
                                       idx_t &start_pos, idx_t &end_pos) {
 	start_pos = 0;
