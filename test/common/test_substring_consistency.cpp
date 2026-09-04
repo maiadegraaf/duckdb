@@ -5,8 +5,7 @@
 using namespace duckdb;
 
 // SubstringASCII/Unicode/Grapheme must agree exactly on ASCII input (bytes, codepoints and grapheme
-// clusters coincide there). This file has had two independent bugs where that broke silently - sweep
-// offset/length pairs, including the values that triggered them, as a standing regression gate.
+// clusters coincide there). Sweeps a grid of offset/length pairs asserting all three agree.
 TEST_CASE("substring ASCII/unicode/grapheme paths agree on ASCII input", "[substring]") {
 	// mirrors SUPPORTED_UPPER_BOUND/SUPPORTED_LOWER_BOUND in substring.cpp (not exported, so
 	// duplicated here as literals)
@@ -16,23 +15,9 @@ TEST_CASE("substring ASCII/unicode/grapheme paths agree on ASCII input", "[subst
 	const string str = "hello world!!";
 	string_t input(str.c_str(), UnsafeNumericCast<uint32_t>(str.size()));
 
-	const duckdb::vector<int64_t> offsets = {supported_lower_bound,
-	                                         -12345678, // the exact value from the original clamping bug
-	                                         -100,
-	                                         -14,
-	                                         -13,
-	                                         -6,
-	                                         -2,
-	                                         -1,
-	                                         0,
-	                                         1,
-	                                         2,
-	                                         6,
-	                                         7,
-	                                         13,
-	                                         14,
-	                                         100,
-	                                         supported_upper_bound};
+	const duckdb::vector<int64_t> offsets = {
+	    supported_lower_bound, -12345678, -100, -14, -13, -6, -2, -1, 0, 1, 2, 6, 7, 13, 14, 100,
+	    supported_upper_bound};
 	const duckdb::vector<int64_t> lengths = {supported_lower_bound, -100, -12, -5, -1, 1, 5, 12, 13, 100,
 	                                         supported_upper_bound};
 
