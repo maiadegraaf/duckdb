@@ -52,8 +52,7 @@ static string_t Slice(Vector &result, const char *input_data, int64_t offset, in
 }
 
 // offset < 0: window is relative to the end of the string (front index = input_size + start/end), not
-// absolute - e.g. offset = -2 on a 5-char string starts at index 3. Both prior bugs in this file came
-// from getting exactly this case wrong by hand.
+// absolute - e.g. offset = -2 on a 5-char string starts at index 3.
 static bool StartEnd(int64_t offset, int64_t length, int64_t &start, int64_t &end) {
 	if (length == 0) {
 		return false;
